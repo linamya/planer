@@ -4,28 +4,26 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MY SPACE — личная и бизнес-система управления</title>
+<!-- Подключение Supabase JS v2 -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Manrope:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap');
 
 :root {
-  /* Основной цвет: благородная глубокая Matcha + нежные пастельные оттенки */
-  --matcha-deep: #4E5B31;     /* Глубокая матча — основной цвет (сайдбар, кнопки, заголовки) */
-  --matcha-mid: #5E6B3C;      /* Средняя матча — градиенты и ховеры */
-  --matcha: #838F58;          /* Matcha (#838F58) — природный зелёный акцент */
-  --matcha-soft: #E5EBD4;     /* Нежный оттенок матчи для бейджей */
-
-  --espresso: #362009;        /* Espresso (#362009) — тёплый древесно-ореховый для контрастного текста и деталей */
-  --almond: #EFE1D5;          /* Almond (#EFE1D5) — основной тёплый миндальный фон */
-  --almond-card: #FAF4EE;     /* Светлый миндальный для карточек */
-  --almond-pure: #FFFDFB;     /* Чистый кремово-белый для инпутов и задач */
-  --line: #DFCFC0;            /* Деликатные миндально-древесные границы */
-  --muted: #5F5849;           /* Приглушённый оливково-ореховый для подписей */
-
-  --strawberry: #F9D1D9;      /* Strawberry (#F9D1D9) — нежно-клубничный акцент */
-  --strawberry-soft: #FCE8EC; /* Мягкий клубничный фон плашек */
-  --lightblue: #B1D5E3;       /* Light Blue (#B1D5E3) — нежный небесно-голубой */
-  --lightblue-soft: #E5F2F7;  /* Мягкий голубой фон плашек */
-
+  --matcha-deep: #4E5B31;
+  --matcha-mid: #5E6B3C;
+  --matcha: #838F58;
+  --matcha-soft: #E5EBD4;
+  --espresso: #362009;
+  --almond: #EFE1D5;
+  --almond-card: #FAF4EE;
+  --almond-pure: #FFFDFB;
+  --line: #DFCFC0;
+  --muted: #5F5849;
+  --strawberry: #F9D1D9;
+  --strawberry-soft: #FCE8EC;
+  --lightblue: #B1D5E3;
+  --lightblue-soft: #E5F2F7;
   --shadow: 0 14px 34px rgba(78, 91, 49, 0.08);
   --shadow-lg: 0 22px 54px rgba(58, 69, 34, 0.22);
   --radius: 20px;
@@ -43,13 +41,50 @@ body {
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 
+/* Экран авторизации */
+#auth-screen {
+  position: fixed; inset: 0; z-index: 1000;
+  background: linear-gradient(135deg, var(--matcha-deep) 0%, var(--matcha-mid) 60%, var(--espresso) 100%);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.auth-card {
+  background: var(--almond-pure);
+  border-radius: 26px; padding: 36px 32px;
+  width: min(440px, 100%);
+  box-shadow: 0 30px 80px rgba(45, 54, 26, 0.4);
+  border: 1px solid var(--line);
+  text-align: center;
+}
+.auth-card h1 {
+  font: 600 28px 'Playfair Display', Georgia, serif;
+  color: var(--matcha-deep); margin: 0 0 6px; letter-spacing: 1px;
+}
+.auth-card p {
+  color: var(--muted); font-size: 13.5px; margin-bottom: 24px;
+}
+.auth-error {
+  background: var(--strawberry-soft); border: 1px solid #F0C3CC;
+  color: #7D2835; padding: 10px 14px; border-radius: 11px;
+  font-size: 12.5px; margin-bottom: 16px; display: none; text-align: left;
+}
+
+/* Синхронизация статус */
+.sync-status {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11.5px; font-weight: 600; padding: 5px 12px; border-radius: 99px;
+  background: var(--almond-card); border: 1px solid var(--line); color: var(--muted);
+  margin-left: 10px;
+}
+.sync-status.syncing { color: var(--matcha-deep); border-color: var(--matcha); }
+.sync-status.saved { color: #355E3B; background: #EAF2EC; border-color: #A3C1AD; }
+.sync-status.error { color: #8B0000; background: #FDE8E8; border-color: #F8B4B4; }
+
 .app {
   display: grid;
   grid-template-columns: 278px minmax(0, 1fr);
   min-height: 100vh;
 }
 
-/* Боковое меню: глубокий цвет Matcha */
 .sidebar {
   height: 100vh;
   position: sticky;
@@ -65,28 +100,28 @@ button { cursor: pointer; }
 }
 
 .brand {
-  padding: 4px 10px 24px;
+  padding: 4px 10px 20px;
   border-bottom: 1px solid rgba(255, 253, 251, 0.18);
 }
-.brand-mark { display: flex; align-items: center; gap: 11px; }
+.brand-mark { display: flex; align-items: center; justify-content: space-between; }
 .brand h1 {
-  font: 600 24px 'Playfair Display', Georgia, serif;
-  margin: 0; letter-spacing: 1.8px; color: var(--almond-pure);
+  font: 600 22px 'Playfair Display', Georgia, serif;
+  margin: 0; letter-spacing: 1.5px; color: var(--almond-pure);
 }
 .brand small {
   display: block; color: var(--strawberry); font-size: 9px;
   letter-spacing: 2.3px; margin: 5px 0 0 0; font-weight: 600;
 }
 
-.nav-group { margin: 22px 0 0; }
+.nav-group { margin: 18px 0 0; }
 .nav-label {
   font-size: 9.5px; letter-spacing: 1.8px; text-transform: uppercase;
-  color: rgba(255, 253, 251, 0.65); padding: 0 12px 8px; font-weight: 700;
+  color: rgba(255, 253, 251, 0.65); padding: 0 12px 6px; font-weight: 700;
 }
 .nav {
   width: 100%; display: flex; align-items: center; gap: 11px;
   text-align: left; border: 0; background: transparent;
-  color: var(--almond-pure); padding: 10px 13px; border-radius: 12px;
+  color: var(--almond-pure); padding: 9px 13px; border-radius: 12px;
   margin: 2px 0; font-size: 13px; font-weight: 500;
   transition: all 0.18s ease;
 }
@@ -112,8 +147,13 @@ button { cursor: pointer; }
   border-top: 1px solid rgba(255, 253, 251, 0.18);
   color: rgba(255, 253, 251, 0.8); font-size: 11px; line-height: 1.65;
 }
+.logout-btn {
+  background: rgba(249, 209, 217, 0.2); border: 1px solid rgba(249, 209, 217, 0.4);
+  color: var(--almond-pure); width: 100%; padding: 8px; border-radius: 10px;
+  font-weight: 600; font-size: 12px; margin-top: 12px; transition: 0.15s;
+}
+.logout-btn:hover { background: var(--strawberry); color: var(--matcha-deep); }
 
-/* Основная область на фоне Almond */
 main {
   min-width: 0;
   padding: 26px clamp(18px, 3.5vw, 52px) 64px;
@@ -139,6 +179,7 @@ main {
   color: var(--matcha-deep); font-weight: 700;
   background: var(--strawberry); padding: 6px 14px; border-radius: 99px;
 }
+.topline-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .today-pill {
   border: 1px solid var(--line); background: var(--almond-pure);
   padding: 8px 16px; border-radius: 99px; color: var(--matcha-deep);
@@ -154,7 +195,6 @@ h1, h2, h3, p { margin-top: 0; }
   color: var(--muted); font-size: 14px; margin: 0 0 24px; max-width: 740px;
 }
 
-/* Hero-блок */
 .hero {
   position: relative; overflow: hidden;
   border-radius: 26px;
@@ -174,12 +214,6 @@ h1, h2, h3, p { margin-top: 0; }
   background: radial-gradient(circle, rgba(249, 209, 217, 0.24) 0%, transparent 70%);
   right: -60px; top: -90px; pointer-events: none;
 }
-.hero::after {
-  content: ""; position: absolute;
-  width: 260px; height: 260px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(177, 213, 227, 0.2) 0%, transparent 70%);
-  left: 36%; bottom: -110px; pointer-events: none;
-}
 .hero-copy { position: relative; z-index: 2; }
 .hero-kicker {
   display: inline-block; font-size: 10px; letter-spacing: 2.2px;
@@ -197,7 +231,6 @@ h1, h2, h3, p { margin-top: 0; }
   max-width: 540px; margin-bottom: 22px;
 }
 
-/* Виджет «Главный фокус сейчас» */
 .hero-panel {
   position: relative; z-index: 2;
   background: rgba(255, 253, 251, 0.14);
@@ -246,207 +279,95 @@ h1, h2, h3, p { margin-top: 0; }
   color: var(--matcha-deep);
 }
 
-/* Кнопки */
 .btn {
-  border: 0;
-  background: var(--matcha-deep);
-  color: var(--almond-pure);
-  padding: 11px 18px; border-radius: 12px;
-  font-size: 13px; font-weight: 600;
-  transition: all 0.18s ease;
-  box-shadow: 0 6px 16px rgba(78, 91, 49, 0.22);
+  border: 0; background: var(--matcha-deep); color: var(--almond-pure);
+  padding: 11px 18px; border-radius: 12px; font-size: 13px; font-weight: 600;
+  transition: all 0.18s ease; box-shadow: 0 6px 16px rgba(78, 91, 49, 0.22);
   display: inline-flex; align-items: center; gap: 7px;
 }
-.btn:hover {
-  background: var(--matcha-mid);
-  transform: translateY(-1px);
-  box-shadow: 0 9px 22px rgba(78, 91, 49, 0.3);
-}
-
-.btn-strawberry {
-  background: var(--strawberry);
-  color: var(--matcha-deep);
-  font-weight: 700;
-  box-shadow: 0 6px 18px rgba(45, 54, 26, 0.18);
-}
-.btn-strawberry:hover {
-  background: #F5BFC9;
-  color: var(--matcha-deep);
-}
-
-.btn-matcha {
-  background: var(--matcha);
-  color: #FFFFFF;
-  box-shadow: 0 6px 16px rgba(131, 143, 88, 0.28);
-}
-.btn-matcha:hover {
-  background: var(--matcha-deep);
-  color: #FFFFFF;
-}
-
-.btn-lightblue {
-  background: var(--lightblue);
-  color: var(--matcha-deep);
-  font-weight: 700;
-  box-shadow: none;
-}
-.btn-lightblue:hover { background: #9EC8D9; }
-
-.btn-light {
-  background: var(--strawberry-soft);
-  color: var(--matcha-deep);
-  border: 1px solid #F0C3CC;
-  box-shadow: none;
-}
+.btn:hover { background: var(--matcha-mid); transform: translateY(-1px); }
+.btn-strawberry { background: var(--strawberry); color: var(--matcha-deep); font-weight: 700; }
+.btn-strawberry:hover { background: #F5BFC9; }
+.btn-matcha { background: var(--matcha); color: #FFFFFF; }
+.btn-matcha:hover { background: var(--matcha-deep); }
+.btn-lightblue { background: var(--lightblue); color: var(--matcha-deep); font-weight: 700; }
+.btn-light { background: var(--strawberry-soft); color: var(--matcha-deep); border: 1px solid #F0C3CC; box-shadow: none; }
 .btn-light:hover { background: var(--strawberry); }
-
-.btn-outline {
-  background: rgba(255, 253, 251, 0.14);
-  border: 1px solid rgba(255, 253, 251, 0.55);
-  color: var(--almond-pure); box-shadow: none;
-}
-.btn-outline:hover { background: rgba(255, 253, 251, 0.24); }
+.btn-outline { background: rgba(255, 253, 251, 0.14); border: 1px solid rgba(255, 253, 251, 0.55); color: var(--almond-pure); box-shadow: none; }
 .btn-sm { padding: 8px 13px; font-size: 12px; border-radius: 10px; }
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
-/* Карточки статистики */
 .grid { display: grid; gap: 16px; }
 .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0 0 20px; }
 .stat-card {
-  background: var(--almond-pure);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 18px 20px;
-  box-shadow: var(--shadow);
-  position: relative; overflow: hidden;
-  transition: transform 0.18s ease;
+  background: var(--almond-pure); border: 1px solid var(--line);
+  border-radius: 18px; padding: 18px 20px; box-shadow: var(--shadow);
+  position: relative; overflow: hidden; transition: transform 0.18s ease;
 }
 .stat-card:hover { transform: translateY(-2px); }
-.stat-card::before {
-  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
-  background: var(--matcha);
-}
+.stat-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--matcha); }
 .stat-card.accent-strawberry::before { background: var(--strawberry); }
 .stat-card.accent-lightblue::before { background: var(--lightblue); }
 .stat-card.accent-coffee::before { background: var(--matcha-deep); }
 .stat-card.accent-espresso::before { background: var(--espresso); }
 
-.stat-label {
-  font-size: 11px; color: var(--muted); font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.6px;
-}
-.stat-value {
-  font: 600 28px/1.15 'Playfair Display', Georgia, serif;
-  color: var(--matcha-deep); margin: 8px 0 4px;
-}
+.stat-label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; }
+.stat-value { font: 600 28px/1.15 'Playfair Display', Georgia, serif; color: var(--matcha-deep); margin: 8px 0 4px; }
 .stat-note { font-size: 11.5px; color: var(--muted); }
 
-/* Обычные карточки */
 .columns { grid-template-columns: 1.25fr 0.75fr; align-items: start; }
 .card {
-  background: var(--almond-pure);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 22px;
-  box-shadow: var(--shadow);
-  min-width: 0;
+  background: var(--almond-pure); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow); min-width: 0;
 }
-.card-head {
-  display: flex; justify-content: space-between; align-items: center;
-  gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
-}
-.card-head h3 {
-  font: 600 20px 'Playfair Display', Georgia, serif;
-  color: var(--matcha-deep); margin: 0;
-}
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.card-head h3 { font: 600 20px 'Playfair Display', Georgia, serif; color: var(--matcha-deep); margin: 0; }
 .subtle-link {
   border: 0; background: var(--strawberry); color: var(--matcha-deep);
-  font-size: 12px; font-weight: 700; padding: 6px 13px; border-radius: 99px;
-  transition: 0.15s;
+  font-size: 12px; font-weight: 700; padding: 6px 13px; border-radius: 99px; transition: 0.15s;
 }
 .subtle-link:hover { background: #F4BCC7; }
 
-/* Задачи */
 .task {
-  display: flex; gap: 13px; align-items: flex-start;
-  padding: 14px 16px;
-  margin-bottom: 10px;
-  background: var(--almond-card);
-  border: 1px solid var(--line);
-  border-left: 5px solid var(--matcha);
-  border-radius: 14px;
-  transition: all 0.16s ease;
+  display: flex; gap: 13px; align-items: flex-start; padding: 14px 16px; margin-bottom: 10px;
+  background: var(--almond-card); border: 1px solid var(--line); border-left: 5px solid var(--matcha);
+  border-radius: 14px; transition: all 0.16s ease;
 }
 .task:last-child { margin-bottom: 0; }
-.task:hover {
-  background: #FFFFFF;
-  border-color: #C3B89E;
-  box-shadow: 0 6px 18px rgba(78, 91, 49, 0.08);
-}
+.task:hover { background: #FFFFFF; border-color: #C3B89E; box-shadow: 0 6px 18px rgba(78, 91, 49, 0.08); }
 .task.prio-high { border-left-color: var(--espresso); }
 .task.prio-low { border-left-color: var(--lightblue); }
-.task.done {
-  opacity: 0.72;
-  background: #F1EBE2;
-  border-left-color: var(--matcha);
-}
+.task.done { opacity: 0.72; background: #F1EBE2; border-left-color: var(--matcha); }
 
 .check {
-  appearance: none; -webkit-appearance: none;
-  width: 21px; height: 21px; flex: none;
-  border: 2px solid var(--matcha-deep);
-  background: #FFFFFF;
-  border-radius: 6px; margin: 1px 0 0; cursor: pointer;
-  transition: 0.15s;
+  appearance: none; -webkit-appearance: none; width: 21px; height: 21px; flex: none;
+  border: 2px solid var(--matcha-deep); background: #FFFFFF; border-radius: 6px; margin: 1px 0 0; cursor: pointer;
 }
-.check:checked {
-  background: var(--matcha-deep);
-  border-color: var(--matcha-deep);
-}
-.check:checked::after {
-  content: '✓'; display: block; color: #FFFFFF; font-size: 13px;
-  font-weight: 700; text-align: center; line-height: 17px;
-}
+.check:checked { background: var(--matcha-deep); border-color: var(--matcha-deep); }
+.check:checked::after { content: '✓'; display: block; color: #FFFFFF; font-size: 13px; font-weight: 700; text-align: center; line-height: 17px; }
 
 .task-info { flex: 1; min-width: 0; }
-.task-name {
-  font-size: 15px; color: var(--espresso); font-weight: 700;
-  line-height: 1.4; overflow-wrap: anywhere;
-}
+.task-name { font-size: 15px; color: var(--espresso); font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
 .task.done .task-name { text-decoration: line-through; color: var(--muted); }
-.task-note-preview {
-  font-size: 13px; color: var(--muted); margin-top: 4px;
-}
-.task-meta {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 7px;
-  font-size: 11.5px; color: var(--muted); margin-top: 8px;
-}
+.task-note-preview { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.task-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); margin-top: 8px; }
 
-/* Бейджи */
 .tag {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 10px; border-radius: 99px;
-  background: var(--matcha-soft); color: var(--matcha-deep);
-  font-size: 11px; font-weight: 700; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 99px;
+  background: var(--matcha-soft); color: var(--matcha-deep); font-size: 11px; font-weight: 700; white-space: nowrap;
 }
 .tag.strawberry { background: var(--strawberry); color: var(--matcha-deep); }
 .tag.lightblue { background: var(--lightblue); color: var(--espresso); }
 .tag.coffee { background: var(--matcha-deep); color: var(--almond-pure); }
 .tag.espresso { background: var(--espresso); color: var(--almond); }
 
-/* Плитки бизнесов */
 .business-tile {
-  display: flex; align-items: center; gap: 14px;
-  padding: 14px 12px; border-radius: 14px;
+  display: flex; align-items: center; gap: 14px; padding: 14px 12px; border-radius: 14px;
   border-bottom: 1px solid var(--line); transition: 0.15s;
 }
 .business-tile:hover { background: var(--almond-card); }
 .business-tile:last-child { border-bottom: 0; }
-.biz-icon {
-  width: 44px; height: 44px; border-radius: 14px;
-  display: grid; place-items: center; font-size: 20px; flex: none;
-  font-weight: 700;
-}
+.biz-icon { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; font-size: 20px; flex: none; font-weight: 700; }
 .business-tile:nth-child(1) .biz-icon { background: var(--matcha-deep); color: #FFFFFF; }
 .business-tile:nth-child(2) .biz-icon { background: var(--espresso); color: var(--almond); }
 .business-tile:nth-child(3) .biz-icon { background: var(--lightblue); color: var(--espresso); }
@@ -455,194 +376,79 @@ h1, h2, h3, p { margin-top: 0; }
 .biz-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
 .progress { height: 10px; border-radius: 99px; background: #E3D7C8; overflow: hidden; }
-.progress span {
-  display: block; height: 100%;
-  background: linear-gradient(90deg, var(--matcha-deep), var(--matcha), var(--strawberry));
-  border-radius: 99px; transition: width 0.3s ease;
-}
+.progress span { display: block; height: 100%; background: linear-gradient(90deg, var(--matcha-deep), var(--matcha), var(--strawberry)); border-radius: 99px; transition: width 0.3s ease; }
 
-/* Формы и тулбары */
-.toolbar {
-  display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
-  margin-bottom: 18px;
-}
+.toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 18px; }
 .field {
-  width: 100%; border: 1.5px solid #D2C3B2;
-  background: var(--almond-pure); border-radius: 11px;
-  padding: 10px 13px; color: var(--espresso);
-  outline: none; font-size: 13.5px; font-weight: 500;
+  width: 100%; border: 1.5px solid #D2C3B2; background: var(--almond-pure); border-radius: 11px;
+  padding: 10px 13px; color: var(--espresso); outline: none; font-size: 13.5px; font-weight: 500;
 }
 .field::placeholder { color: #877C6C; font-weight: 400; }
-.field:focus {
-  border-color: var(--matcha-deep);
-  box-shadow: 0 0 0 3px rgba(131, 143, 88, 0.25);
-}
-.field-label {
-  display: block; font-size: 11.5px; color: var(--matcha-deep);
-  margin: 0 0 6px; font-weight: 700;
-}
+.field:focus { border-color: var(--matcha-deep); box-shadow: 0 0 0 3px rgba(131, 143, 88, 0.25); }
+.field-label { display: block; font-size: 11.5px; color: var(--matcha-deep); margin: 0 0 6px; font-weight: 700; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .form-grid .full { grid-column: 1 / -1; }
 .filter { max-width: 220px; }
 
-/* Строки списков */
-.list-row {
-  display: flex; align-items: center; gap: 13px;
-  padding: 14px 16px; margin-bottom: 10px;
-  background: var(--almond-card);
-  border: 1px solid var(--line); border-radius: 14px;
-}
+.list-row { display: flex; align-items: center; gap: 13px; padding: 14px 16px; margin-bottom: 10px; background: var(--almond-card); border: 1px solid var(--line); border-radius: 14px; }
 .list-row:last-child { margin-bottom: 0; }
 .list-row-main { flex: 1; min-width: 0; }
 .list-row-title { font-size: 14.5px; font-weight: 700; color: var(--espresso); }
 .list-row-meta { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
 .delete {
-  border: 1px solid var(--line); background: var(--strawberry-soft);
-  color: var(--matcha-deep); width: 30px; height: 30px; border-radius: 9px;
-  font-size: 17px; display: grid; place-items: center; flex: none;
-  transition: 0.15s;
+  border: 1px solid var(--line); background: var(--strawberry-soft); color: var(--matcha-deep);
+  width: 30px; height: 30px; border-radius: 9px; font-size: 17px; display: grid; place-items: center; flex: none; transition: 0.15s;
 }
 .delete:hover { background: var(--strawberry); color: var(--matcha-deep); border-color: #E8B4BF; }
 
-.empty {
-  padding: 34px 18px; text-align: center;
-  color: var(--muted); font-size: 13.5px;
-  background: var(--almond-card); border-radius: 14px;
-  border: 1px dashed #C8B9A6;
-}
-.notice {
-  background: var(--lightblue-soft);
-  border: 1px solid var(--lightblue); border-radius: 15px;
-  padding: 15px 18px; color: var(--espresso);
-  font-size: 12.5px; line-height: 1.65; margin-top: 16px;
-}
+.empty { padding: 34px 18px; text-align: center; color: var(--muted); font-size: 13.5px; background: var(--almond-card); border-radius: 14px; border: 1px dashed #C8B9A6; }
+.notice { background: var(--lightblue-soft); border: 1px solid var(--lightblue); border-radius: 15px; padding: 15px 18px; color: var(--espresso); font-size: 12.5px; line-height: 1.65; margin-top: 16px; }
 
-/* Привычки: концепция и трекер недели */
 .habit-concept-wrap {
   background: linear-gradient(135deg, var(--matcha-soft) 0%, var(--almond-pure) 52%, var(--strawberry-soft) 100%);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 18px 20px;
-  margin-bottom: 20px;
+  border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px; margin-bottom: 20px;
 }
-.habit-concept-head {
-  display: flex; justify-content: space-between; align-items: center; gap: 10px;
-}
-.habit-concept-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 14px;
-}
-.habit-step {
-  background: var(--almond-pure);
-  border-radius: 14px; padding: 14px 16px;
-  border: 1px solid var(--line);
-}
-.habit-step b {
-  display: block; color: var(--matcha-deep); font-size: 13px; margin-bottom: 4px;
-}
+.habit-concept-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.habit-concept-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+.habit-step { background: var(--almond-pure); border-radius: 14px; padding: 14px 16px; border: 1px solid var(--line); }
+.habit-step b { display: block; color: var(--matcha-deep); font-size: 13px; margin-bottom: 4px; }
 .habit-step span { font-size: 12px; color: var(--muted); line-height: 1.5; }
 
 .habit-card {
-  background: var(--almond-pure);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 18px 20px;
-  margin-bottom: 14px;
-  box-shadow: var(--shadow);
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 16px;
-  align-items: center;
+  background: var(--almond-pure); border: 1px solid var(--line); border-radius: 18px;
+  padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center;
 }
-.habit-days {
-  display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;
-}
+.habit-days { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .day-dot {
-  width: 42px; height: 48px;
-  border-radius: 50%;
-  border: 1.5px solid #C8BCA8;
-  background: var(--almond-card);
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 1px; font-size: 10px; font-weight: 700;
-  color: var(--muted); transition: 0.16s;
+  width: 42px; height: 48px; border-radius: 50%; border: 1.5px solid #C8BCA8; background: var(--almond-card);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: 10px; font-weight: 700; color: var(--muted); transition: 0.16s;
 }
 .day-dot.today { border-color: var(--matcha-deep); border-width: 2px; }
-.day-dot.checked {
-  background: var(--matcha-deep);
-  border-color: var(--matcha-deep);
-  color: #FFFFFF;
-  box-shadow: 0 4px 12px rgba(78, 91, 49, 0.3);
-}
+.day-dot.checked { background: var(--matcha-deep); border-color: var(--matcha-deep); color: #FFFFFF; box-shadow: 0 4px 12px rgba(78, 91, 49, 0.3); }
 .day-dot i { font-style: normal; font-size: 13px; }
 
-/* Вкладки (Финансы и фильтры) */
-.tabs {
-  display: inline-flex; flex-wrap: wrap; gap: 6px;
-  background: #DFD2C3; padding: 5px; border-radius: 14px;
-}
-.tab-btn {
-  border: 0; background: transparent; color: var(--espresso);
-  padding: 8px 14px; border-radius: 10px;
-  font-size: 12.5px; font-weight: 600; transition: 0.15s;
-}
-.tab-btn.active {
-  background: var(--matcha-deep); color: var(--almond-pure);
-  box-shadow: 0 3px 10px rgba(78, 91, 49, 0.22);
-}
+.tabs { display: inline-flex; flex-wrap: wrap; gap: 6px; background: #DFD2C3; padding: 5px; border-radius: 14px; }
+.tab-btn { border: 0; background: transparent; color: var(--espresso); padding: 8px 14px; border-radius: 10px; font-size: 12.5px; font-weight: 600; transition: 0.15s; }
+.tab-btn.active { background: var(--matcha-deep); color: var(--almond-pure); box-shadow: 0 3px 10px rgba(78, 91, 49, 0.22); }
 
-/* CRM карточки */
 .crm-card {
-  background: var(--almond-card);
-  border: 1px solid var(--line);
-  border-left: 5px solid var(--lightblue);
-  border-radius: 16px;
-  padding: 16px 18px;
-  margin-bottom: 12px;
-  display: flex; flex-wrap: wrap; gap: 14px;
-  align-items: center; justify-content: space-between;
+  background: var(--almond-card); border: 1px solid var(--line); border-left: 5px solid var(--lightblue);
+  border-radius: 16px; padding: 16px 18px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between;
 }
-.crm-status-select {
-  border: 1.5px solid #D2C3B2;
-  background: var(--almond-pure);
-  border-radius: 10px;
-  padding: 6px 10px;
-  font-size: 12px; font-weight: 700;
-  color: var(--matcha-deep);
-}
+.crm-status-select { border: 1.5px solid #D2C3B2; background: var(--almond-pure); border-radius: 10px; padding: 6px 10px; font-size: 12px; font-weight: 700; color: var(--matcha-deep); }
 
-/* Модальное окно */
 .modal-back {
-  position: fixed; inset: 0;
-  background: rgba(45, 54, 26, 0.55);
-  backdrop-filter: blur(4px);
-  display: none; align-items: center; justify-content: center;
-  padding: 18px; z-index: 50;
+  position: fixed; inset: 0; background: rgba(45, 54, 26, 0.55); backdrop-filter: blur(4px);
+  display: none; align-items: center; justify-content: center; padding: 18px; z-index: 50;
 }
 .modal-back.show { display: flex; }
 .modal {
-  background: var(--almond-pure);
-  border: 1px solid var(--line);
-  width: min(580px, 100%);
-  max-height: 90vh; overflow-y: auto;
-  border-radius: 24px; padding: 26px;
-  box-shadow: 0 28px 90px rgba(45, 54, 26, 0.32);
+  background: var(--almond-pure); border: 1px solid var(--line); width: min(580px, 100%);
+  max-height: 90vh; overflow-y: auto; border-radius: 24px; padding: 26px; box-shadow: 0 28px 90px rgba(45, 54, 26, 0.32);
 }
-.modal-head {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 20px;
-}
-.modal-head h2 {
-  font: 600 24px 'Playfair Display', Georgia, serif;
-  color: var(--matcha-deep); margin: 0;
-}
-.close {
-  border: 0; background: var(--strawberry);
-  width: 34px; height: 34px; border-radius: 50%;
-  font-size: 20px; color: var(--matcha-deep); font-weight: 700;
-}
+.modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.modal-head h2 { font: 600 24px 'Playfair Display', Georgia, serif; color: var(--matcha-deep); margin: 0; }
+.close { border: 0; background: var(--strawberry); width: 34px; height: 34px; border-radius: 50%; font-size: 20px; color: var(--matcha-deep); font-weight: 700; }
 
 .mobile-overlay { display: none; }
 
@@ -654,15 +460,9 @@ h1, h2, h3, p { margin-top: 0; }
 }
 @media (max-width: 780px) {
   .app { display: block; }
-  .sidebar {
-    position: fixed; left: -295px; top: 0; width: 278px;
-    transition: left 0.25s ease;
-  }
+  .sidebar { position: fixed; left: -295px; top: 0; width: 278px; transition: left 0.25s ease; }
   .sidebar.open { left: 0; }
-  .mobile-overlay.show {
-    display: block; position: fixed; inset: 0;
-    background: rgba(45, 54, 26, 0.52); z-index: 15;
-  }
+  .mobile-overlay.show { display: block; position: fixed; inset: 0; background: rgba(45, 54, 26, 0.52); z-index: 15; }
   .mobilebar { display: flex; }
   .columns { grid-template-columns: 1fr; }
   .habit-card { grid-template-columns: 1fr; }
@@ -677,6 +477,27 @@ h1, h2, h3, p { margin-top: 0; }
 </style>
 </head>
 <body>
+
+<!-- Экран авторизации -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <h1>MY SPACE</h1>
+    <p>Личная и бизнес-система управления</p>
+    <div id="auth-error" class="auth-error"></div>
+    <form id="auth-form" onsubmit="handleLogin(event)">
+      <div style="margin-bottom: 14px; text-align: left;">
+        <label class="field-label">Email</label>
+        <input class="field" type="email" id="auth-email" placeholder="ваш@email.com" required>
+      </div>
+      <div style="margin-bottom: 20px; text-align: left;">
+        <label class="field-label">Пароль</label>
+        <input class="field" type="password" id="auth-password" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-matcha" style="width: 100%; justify-content: center;">Войти в пространство</button>
+    </form>
+  </div>
+</div>
+
 <div class="mobile-overlay" id="overlay"></div>
 <div class="app">
   <aside class="sidebar" id="sidebar">
@@ -721,6 +542,7 @@ h1, h2, h3, p { margin-top: 0; }
 
     <div class="side-bottom">
       Место, где идеи превращаются в планы,<br>а планы — в реальные результаты.
+      <button class="logout-btn" onclick="handleLogout()">Выйти из аккаунта</button>
     </div>
   </aside>
 
@@ -734,7 +556,10 @@ h1, h2, h3, p { margin-top: 0; }
 
     <div class="topline">
       <div class="crumb" id="crumb">YOUR PERSONAL SPACE</div>
-      <div class="today-pill" id="today"></div>
+      <div class="topline-right">
+        <div id="syncStatus" class="sync-status">✓ Сохранено в облаке</div>
+        <div class="today-pill" id="today"></div>
+      </div>
     </div>
 
     <div id="content"></div>
@@ -752,6 +577,15 @@ h1, h2, h3, p { margin-top: 0; }
 </div>
 
 <script>
+// Настройки Supabase (только публичные ключи)
+const SUPABASE_URL = 'https://dhmemutjurytheffxezi.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_mH74XH2dKeJ0ct4hCVwzjw_0CrET6Xn';
+
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+let currentUser = null;
+let saveTimeout = null;
+
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 
@@ -791,56 +625,157 @@ const defaultDB = {
   settings: {
     displayCurrency: 'USD',
     habitGuideOpen: true,
-    ratesToUSD: {
-      USD: 1,
-      RUB: 92,
-      VND: 25400
-    }
+    ratesToUSD: { USD: 1, RUB: 92, VND: 25400 }
   }
 };
 
-let db;
-try {
-  const rawStr = localStorage.getItem('myspace_v2') || localStorage.getItem('myspace_v3') || '{}';
-  const raw = JSON.parse(rawStr);
-  db = {
-    ...defaultDB,
+let db = JSON.parse(JSON.stringify(defaultDB));
+
+// Авторизация
+async function checkAuth() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (session && session.user) {
+    currentUser = session.user;
+    $('#auth-screen').style.display = 'none';
+    await loadUserData();
+  } else {
+    $('#auth-screen').style.display = 'flex';
+  }
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const email = $('#auth-email').value.trim();
+  const password = $('#auth-password').value;
+  const errBox = $('#auth-error');
+  errBox.style.display = 'none';
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  if (error) {
+    errBox.textContent = 'Ошибка входа: ' + error.message;
+    errBox.style.display = 'block';
+  } else if (data.session) {
+    currentUser = data.session.user;
+    $('#auth-screen').style.display = 'none';
+    await loadUserData();
+  }
+}
+
+async function handleLogout() {
+  await supabaseClient.auth.signOut();
+  currentUser = null;
+  $('#auth-screen').style.display = 'flex';
+}
+
+// Загрузка и сохранение данных с Supabase
+async function loadUserData() {
+  updateSyncStatus('syncing', '🔄 Загрузка...');
+  try {
+    const { data, error } = await supabaseClient
+      .from('workspace_data')
+      .select('data')
+      .eq('user_id', currentUser.id)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Ошибка загрузки из Supabase:', error);
+    }
+
+    if (data && data.data && Object.keys(data.data).length > 0) {
+      // Данные в облаке есть — используем их
+      db = mergeDB(defaultDB, data.data);
+    } else {
+      // В облаке данных нет. Проверим локальные данные (миграция при первом входе)
+      const rawStr = localStorage.getItem('myspace_v2') || localStorage.getItem('myspace_v3') || '{}';
+      let localParsed = {};
+      try { localParsed = JSON.parse(rawStr); } catch(err){}
+      
+      if (Object.keys(localParsed).length > 0) {
+        db = mergeDB(defaultDB, localParsed);
+      } else {
+        db = JSON.parse(JSON.stringify(defaultDB));
+      }
+      // Сразу сохраняем текущие данные в облако
+      await saveToCloudImmediate();
+    }
+    updateSyncStatus('saved', '✓ Сохранено в облаке');
+    render();
+  } catch (err) {
+    console.error(err);
+    updateSyncStatus('error', '⚠️ Ошибка сети');
+  }
+}
+
+function mergeDB(def, raw) {
+  const merged = {
+    ...def,
     ...raw,
     settings: {
-      ...defaultDB.settings,
+      ...def.settings,
       ...(raw.settings || {}),
       ratesToUSD: {
-        ...defaultDB.settings.ratesToUSD,
+        ...def.settings.ratesToUSD,
         ...((raw.settings && raw.settings.ratesToUSD) || {})
       }
     }
   };
-  if (Array.isArray(raw.crm) && !db.clients.length) {
-    db.clients = raw.crm;
+  if (Array.isArray(raw.crm) && !merged.clients.length) {
+    merged.clients = raw.crm;
   }
-  db.habits = (db.habits || []).map(h => ({
+  merged.habits = (merged.habits || []).map(h => ({
     ...h,
     logs: Array.isArray(h.logs) ? h.logs : (h.done ? [TODAY] : []),
     category: h.category || 'Баланс',
     frequency: h.frequency || h.extra || 'Каждый день'
   }));
-  db.finance = (db.finance || []).map(f => ({
+  merged.finance = (merged.finance || []).map(f => ({
     ...f,
     currency: f.currency || 'USD',
     scope: f.scope || (f.biz === 'Личное' ? 'personal' : 'business')
   }));
-} catch (e) {
-  db = JSON.parse(JSON.stringify(defaultDB));
+  return merged;
 }
 
-let page = 'home';
-let financeScopeTab = 'all';
-let financeBizFilter = '';
-let crmBizFilter = '';
-let crmStatusFilter = '';
-
 function save() {
+  // Локальный кэш
   localStorage.setItem('myspace_v2', JSON.stringify(db));
+  
+  // Автоматическая отправка в облако с дебаунсом (защита от частых запросов)
+  updateSyncStatus('syncing', '🔄 Синхронизация...');
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async () => {
+    await saveToCloudImmediate();
+  }, 1000);
+}
+
+async function saveToCloudImmediate() {
+  if (!currentUser) return;
+  try {
+    const { error } = await supabaseClient
+      .from('workspace_data')
+      .upsert({
+        user_id: currentUser.id,
+        data: db,
+        updated_at: new Date().toISOString()
+      });
+
+    if (error) {
+      console.error('Ошибка сохранения в Supabase:', error);
+      updateSyncStatus('error', '⚠️ Ошибка сохранения');
+    } else {
+      updateSyncStatus('saved', '✓ Сохранено в облаке');
+    }
+  } catch(err) {
+    console.error(err);
+    updateSyncStatus('error', '⚠️ Нет интернета');
+  }
+}
+
+function updateSyncStatus(statusClass, text) {
+  const el = $('#syncStatus');
+  if (!el) return;
+  el.className = 'sync-status ' + statusClass;
+  el.textContent = text;
 }
 
 // Валютные функции
@@ -861,6 +796,12 @@ function formatMoney(amount, cur) {
   });
   return `${formatted} ${meta.symbol}`;
 }
+
+let page = 'home';
+let financeScopeTab = 'all';
+let financeBizFilter = '';
+let crmBizFilter = '';
+let crmStatusFilter = '';
 
 function openModal(title, body) {
   $('#modalTitle').textContent = title;
@@ -988,7 +929,6 @@ function saveTask() {
   render();
 }
 
-// Привычки: логика 7 дней и стрика
 function getLast7Days() {
   const days = [];
   const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
@@ -1030,7 +970,7 @@ function addHabitModal() {
   ];
   openModal('Новая привычка', `
     <div style="margin-bottom:14px">
-      <div class="field-label">Быстрые шаблоны привычек (нажмите для выбора):</div>
+      <div class="field-label">Быстрые шаблоны привычек:</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         ${presets.map((p, idx) => `<button type="button" class="btn btn-light btn-sm" data-preset-habit="${idx}">+ ${esc(p.name)}</button>`).join('')}
       </div>
@@ -1090,7 +1030,6 @@ function addHabitModal() {
   };
 }
 
-// Цели и Проекты
 function addGoalOrProject(kind) {
   const isGoal = kind === 'goals';
   openModal(isGoal ? 'Новая цель' : 'Новый проект', `
@@ -1132,14 +1071,13 @@ function addGoalOrProject(kind) {
   };
 }
 
-// CRM — Клиенты
 function addClientModal(editId = null) {
   const existing = editId ? db.clients.find(c => c.id === editId) : null;
   openModal(existing ? 'Редактировать клиента' : 'Новый клиент', `
     <div class="form-grid">
       <div class="full">
         <label class="field-label">Имя клиента / Компания</label>
-        <input class="field" id="crm-name" value="${esc(existing?.name || '')}" placeholder="Например: Анна и Марк (свадьба в июне)">
+        <input class="field" id="crm-name" value="${esc(existing?.name || '')}" placeholder="Например: Анна и Марк">
       </div>
       <div>
         <label class="field-label">Направление</label>
@@ -1155,8 +1093,8 @@ function addClientModal(editId = null) {
         </select>
       </div>
       <div>
-        <label class="field-label">Контакт (Telegram / Instagram / Email)</label>
-        <input class="field" id="crm-contact" value="${esc(existing?.contact || existing?.extra || '')}" placeholder="@username или email">
+        <label class="field-label">Контакт (Telegram / Email)</label>
+        <input class="field" id="crm-contact" value="${esc(existing?.contact || existing?.extra || '')}" placeholder="@username">
       </div>
       <div>
         <label class="field-label">Сумма сделки</label>
@@ -1171,7 +1109,7 @@ function addClientModal(editId = null) {
       </div>
       <div class="full">
         <label class="field-label">Заметка по заказу</label>
-        <textarea class="field" id="crm-note" rows="2" placeholder="Детали заказа, пожелания, сроки">${esc(existing?.note || '')}</textarea>
+        <textarea class="field" id="crm-note" rows="2" placeholder="Детали заказа">${esc(existing?.note || '')}</textarea>
       </div>
     </div>
     <div style="margin-top:18px">
@@ -1204,7 +1142,6 @@ function addClientModal(editId = null) {
   };
 }
 
-// Заметки
 function addNote() {
   openModal('Новая заметка', `
     <label class="field-label">Заголовок</label>
@@ -1239,13 +1176,12 @@ function addNote() {
   };
 }
 
-// Финансы (Личные / Бизнес + VND, RUB, USD)
 function addFinance() {
   openModal('Новая финансовая операция', `
     <div class="form-grid">
       <div class="full">
         <label class="field-label">Описание операции</label>
-        <input class="field" id="money-title" placeholder="Например: Оплата за сайт-приглашение или покупка продуктов">
+        <input class="field" id="money-title" placeholder="Например: Оплата за сайт">
       </div>
       <div>
         <label class="field-label">Тип операции</label>
@@ -1265,7 +1201,7 @@ function addFinance() {
         <label class="field-label">Направление</label>
         <select class="field" id="money-biz">
           ${businesses.map(b => `<option value="${b.name}">${b.name}</option>`).join('')}
-          <option value="Личное">Личное (дом, жизнь, отдых)</option>
+          <option value="Личное">Личное</option>
         </select>
       </div>
       <div>
@@ -1279,9 +1215,9 @@ function addFinance() {
       <div>
         <label class="field-label">Валюта</label>
         <select class="field" id="money-cur">
-          <option value="VND">VND ₫ (Донги)</option>
-          <option value="RUB">RUB ₽ (Рубли)</option>
-          <option value="USD">USD $ (Доллары)</option>
+          <option value="USD">USD $</option>
+          <option value="VND">VND ₫</option>
+          <option value="RUB">RUB ₽</option>
         </select>
       </div>
     </div>
@@ -1296,9 +1232,6 @@ function addFinance() {
     } else if ($('#money-biz').value === 'Личное') {
       $('#money-biz').value = businesses[0].name;
     }
-  };
-  $('#money-biz').onchange = () => {
-    $('#money-scope').value = $('#money-biz').value === 'Личное' ? 'personal' : 'business';
   };
 
   $('#saveMoney').onclick = () => {
@@ -1329,16 +1262,13 @@ function addFinance() {
 function openRatesModal() {
   const r = db.settings.ratesToUSD;
   openModal('Курсы валют (относительно 1 USD)', `
-    <p style="font-size:13px;color:var(--muted);margin-bottom:14px">
-      Укажите, сколько донгов и рублей в <strong>1 долларе США (USD)</strong>. Эти курсы используются для мгновенного пересчёта общих итогов.
-    </p>
     <div class="form-grid">
       <div>
-        <label class="field-label">1 USD = сколько VND (₫)</label>
+        <label class="field-label">1 USD = VND (₫)</label>
         <input class="field" id="rate-vnd" type="number" min="1" step="any" value="${r.VND}">
       </div>
       <div>
-        <label class="field-label">1 USD = сколько RUB (₽)</label>
+        <label class="field-label">1 USD = RUB (₽)</label>
         <input class="field" id="rate-rub" type="number" min="0.1" step="any" value="${r.RUB}">
       </div>
     </div>
@@ -1357,7 +1287,6 @@ function openRatesModal() {
   };
 }
 
-// Рефлексия
 function addReflection() {
   openModal('Итоги дня', `
     <div class="form-grid">
@@ -1440,7 +1369,7 @@ function businessPage(b) {
             <div class="list-row-meta">${esc(c.status || 'Новый лид')} ${c.contact ? '· ' + esc(c.contact) : ''}</div>
           </div>
           ${c.amount > 0 ? `<span class="tag">${formatMoney(c.amount, c.currency || 'USD')}</span>` : ''}
-        </div>`).join('') : empty('Клиентов этого направления пока нет.'), `<button class="subtle-link" data-go="crm">Вся CRM →</button>`)}
+        </div>`).join('') : empty('Клиентов пока нет.'), `<button class="subtle-link" data-go="crm">Вся CRM →</button>`)}
       ${card('Финансы направления', bizFinance.length ? bizFinance.slice(0, 5).map(x => `
         <div class="list-row">
           <div class="list-row-main">
@@ -1450,7 +1379,7 @@ function businessPage(b) {
           <b style="color:${x.type === 'Доход' ? '#566232' : '#7D2835'}">
             ${x.type === 'Доход' ? '+' : '−'}${formatMoney(x.amount, x.currency || 'USD')}
           </b>
-        </div>`).join('') : empty('Финансовых операций этого направления пока нет.'), `<button class="subtle-link" data-go="finance">Все финансы →</button>`)}
+        </div>`).join('') : empty('Операций пока нет.'), `<button class="subtle-link" data-go="finance">Все финансы →</button>`)}
     </div>
   `;
 }
@@ -1473,7 +1402,7 @@ function render() {
         <div class="hero-copy">
           <div class="hero-kicker">ТВОЁ ПРОСТРАНСТВО · ТВОИ ПРАВИЛА</div>
           <h2>Создавай жизнь,<br>которую хочешь.</h2>
-          <p>Гармоничное пространство для личных планов, идей, привычек и четырёх направлений работы. Расставляй приоритеты и превращай идеи в реальные результаты.</p>
+          <p>Гармоничное пространство для личных планов, идей, привычек и направлений работы.</p>
           <div class="actions">
             <button class="btn btn-strawberry" data-action="add-task">＋ Новая задача</button>
             <button class="btn btn-outline" data-go="planner">Открыть планер ↗</button>
@@ -1482,7 +1411,7 @@ function render() {
         <div class="hero-panel">
           <div class="hero-panel-label">Главный фокус сейчас</div>
           <div class="hero-panel-title">
-            ${nextPriorityTask ? esc(nextPriorityTask.name) : 'Все задачи выполнены — можно наметить новую цель или отдохнуть ✨'}
+            ${nextPriorityTask ? esc(nextPriorityTask.name) : 'Все задачи выполнены ✨'}
           </div>
           <div class="hero-mini-stats">
             <div class="hero-mini-box matcha-box">
@@ -1491,7 +1420,7 @@ function render() {
             </div>
             <div class="hero-mini-box">
               <b>${db.habits.length}</b>
-              <span>Активных привычек</span>
+              <span>Привычек</span>
             </div>
           </div>
           ${db.habits.length ? `
@@ -1508,7 +1437,7 @@ function render() {
 
       <div class="grid stats">
         ${stat('Задач сегодня', todayTasks.length, 'В плане на сегодня', '')}
-        ${stat('Выполнено сегодня', todayDone, 'Маленькие шаги важны', 'accent-strawberry')}
+        ${stat('Выполнено сегодня', todayDone, 'Шаги важны', 'accent-strawberry')}
         ${stat('В работе', open.length, 'Открытые задачи', 'accent-coffee')}
         ${stat('Клиентов в CRM', db.clients.length, 'По всем направлениям', 'accent-lightblue')}
       </div>
@@ -1517,7 +1446,7 @@ function render() {
         ${card('План на сегодня', taskRows(todayTasks), `<button class="subtle-link" data-go="planner">Все задачи →</button>`)}
         ${card('Мой фокус и ритм', `
           <p style="font-size:13px;color:var(--muted);line-height:1.75">
-            Не обязательно успеть всё. Выбери 1–3 главных шага на сегодня, отметь свои привычки и оставь пространство для жизни.
+            Выбери главные шаги на сегодня и отметь привычки.
           </p>
           <div class="card-head" style="margin-top:18px;margin-bottom:8px">
             <h3 style="font-size:16px">Прогресс дня</h3>
@@ -1525,7 +1454,7 @@ function render() {
           </div>
           <div class="progress"><span style="width:${progressPct}%"></span></div>
           <div class="actions" style="margin-top:18px">
-            <button class="btn btn-light btn-sm" data-action="add-reflection">♡ Подвести итоги дня</button>
+            <button class="btn btn-light btn-sm" data-action="add-reflection">♡ Подвести итоги</button>
             <button class="btn btn-lightblue btn-sm" data-go="habits">↻ Привычки</button>
           </div>
         `)}
@@ -1548,9 +1477,7 @@ function render() {
     html = pageHeader(
       'PERSONAL PLANNER',
       page === 'planner' ? 'Планер и задачи' : 'Календарь',
-      page === 'planner'
-        ? 'Собери все дела в одном месте, расставь приоритеты и двигайся по шагам.'
-        : 'Все запланированные задачи по датам — чтобы видеть ритм недели и ничего не упускать.'
+      page === 'planner' ? 'Собери все дела в одном месте.' : 'Все задачи по датам.'
     );
     if (page === 'planner') {
       html += `
@@ -1574,20 +1501,16 @@ function render() {
       [...all].sort((a, b) => (a.date || '').localeCompare(b.date || '')).forEach(t => (groups[t.date || 'Без даты'] ??= []).push(t));
       html += Object.keys(groups).length
         ? Object.entries(groups).map(([d, arr]) => `${card(d === 'Без даты' ? d : dateFmt(d), taskRows(arr))}<div style="height:14px"></div>`).join('')
-        : card('Ваш календарь', empty('Добавьте задачи с датой — они появятся здесь.'));
+        : card('Ваш календарь', empty('Добавьте задачи с датой.'));
     }
   } else if (page === 'habits') {
     const days7 = getLast7Days();
     const doneTodayCount = db.habits.filter(h => (h.logs || []).includes(TODAY)).length;
     const guideOpen = db.settings.habitGuideOpen !== false;
-    html = pageHeader(
-      'DAILY RITUALS',
-      'Привычки',
-      'Маленькие ежедневные шаги формируют устойчивый ритм и меняют качество жизни без выгорания.'
-    ) + `
+    html = pageHeader('DAILY RITUALS', 'Привычки', 'Маленькие ежедневные шаги формируют устойчивый ритм.') + `
       <div class="habit-concept-wrap">
         <div class="habit-concept-head">
-          <strong style="font-size:15px;color:var(--matcha-deep)">✦ Как это работает и помогает</strong>
+          <strong style="font-size:15px;color:var(--matcha-deep)">✦ Как это работает</strong>
           <button type="button" class="btn btn-light btn-sm" data-action="toggle-habit-guide">
             ${guideOpen ? 'Свернуть ▲' : 'Развернуть ▼'}
           </button>
@@ -1596,23 +1519,23 @@ function render() {
           <div class="habit-concept-grid">
             <div class="habit-step">
               <b>1. Зачем это нужно?</b>
-              <span>Привычки снимают нагрузку с силы воли: то, что делается на автомате, не требует постоянных решений.</span>
+              <span>Привычки снимают нагрузку с силы воли.</span>
             </div>
             <div class="habit-step">
-              <b>2. Как это работает здесь?</b>
-              <span>Отмечайте выполнение за сегодня или любой из последних 7 дней. Каждый день подряд растит вашу серию (стрик 🔥).</span>
+              <b>2. Как отмечать?</b>
+              <span>Отмечайте выполнение за сегодня или последние 7 дней. Растите стрик 🔥.</span>
             </div>
             <div class="habit-step">
-              <b>3. Правило без перфекционизма</b>
-              <span>Если пропустили день — просто продолжайте на следующий. Важна регулярность на дистанции, а не 100% идеал.</span>
+              <b>3. Без перфекционизма</b>
+              <span>Если пропустили день — продолжайте дальше.</span>
             </div>
           </div>` : ''}
       </div>
 
       <div class="grid stats">
-        ${stat('Всего привычек', db.habits.length, 'В твоём трекере', '')}
-        ${stat('Выполнено сегодня', `${doneTodayCount} / ${db.habits.length}`, 'Ритм текущего дня', 'accent-strawberry')}
-        ${stat('Лучшая серия', Math.max(0, ...db.habits.map(h => calcStreak(h.logs))) + ' дн.', 'Максимум дней подряд', 'accent-lightblue')}
+        ${stat('Всего привычек', db.habits.length, 'В трекере', '')}
+        ${stat('Выполнено сегодня', `${doneTodayCount} / ${db.habits.length}`, 'Ритм дня', 'accent-strawberry')}
+        ${stat('Лучшая серия', Math.max(0, ...db.habits.map(h => calcStreak(h.logs))) + ' дн.', 'Максимум подряд', 'accent-lightblue')}
       </div>
 
       <div class="toolbar">
@@ -1648,12 +1571,12 @@ function render() {
             </div>
             <div style="display:flex;align-items:center;gap:8px">
               <button type="button" class="btn btn-sm ${doneToday ? 'btn-matcha' : 'btn-strawberry'}" data-toggle-habit="${h.id}:${TODAY}">
-                ${doneToday ? '✓ Сделано сегодня' : 'Отметить сегодня'}
+                ${doneToday ? '✓ Сделано' : 'Отметить'}
               </button>
-              <button class="delete" data-delete="habits" data-id="${h.id}" title="Удалить привычку">×</button>
+              <button class="delete" data-delete="habits" data-id="${h.id}">×</button>
             </div>
           </div>`;
-      }).join('') : card('Трекер привычек', empty('Добавьте 2–3 простые привычки на каждый день — нажмите «+ Новая привычка».'))}
+      }).join('') : card('Трекер привычек', empty('Добавьте привычки.'))}
     `;
   } else if (page === 'crm') {
     const dispCur = db.settings.displayCurrency;
@@ -1664,15 +1587,11 @@ function render() {
     const totalPipeline = db.clients.reduce((s, c) => s + convertMoney(c.amount || 0, c.currency || 'USD', dispCur), 0);
     const activeClients = db.clients.filter(c => c.status === 'В работе' || c.status === 'В переговорах').length;
 
-    html = pageHeader(
-      'CLIENT RELATIONS',
-      'Клиенты и CRM',
-      'Единая база клиентов, заявок и сделок по всем проектам LYMI и личному бренду.'
-    ) + `
+    html = pageHeader('CLIENT RELATIONS', 'Клиенты и CRM', 'Единая база клиентов и сделок.') + `
       <div class="grid stats">
-        ${stat('Всего клиентов', db.clients.length, 'В базе CRM', 'accent-coffee')}
-        ${stat('Активные сделки', activeClients, 'В переговорах и в работе', 'accent-strawberry')}
-        ${stat('Объём сделок', formatMoney(totalPipeline, dispCur), 'Пересчитано в ' + dispCur, 'accent-lightblue')}
+        ${stat('Всего клиентов', db.clients.length, 'В базе', 'accent-coffee')}
+        ${stat('Активные сделки', activeClients, 'В работе', 'accent-strawberry')}
+        ${stat('Объём сделок', formatMoney(totalPipeline, dispCur), 'В ' + dispCur, 'accent-lightblue')}
       </div>
 
       <div class="toolbar">
@@ -1683,7 +1602,7 @@ function render() {
           <option value="Личное" ${crmBizFilter === 'Личное' ? 'selected' : ''}>Личное</option>
         </select>
         <select class="field filter" id="crm-status-filter">
-          <option value="">Все этапы воронки</option>
+          <option value="">Все этапы</option>
           ${CRM_STATUSES.map(s => `<option value="${s.label}" ${crmStatusFilter === s.label ? 'selected' : ''}>${s.label}</option>`).join('')}
         </select>
       </div>
@@ -1701,25 +1620,25 @@ function render() {
               </div>
               <div class="list-row-meta" style="margin-top:6px">
                 ${c.contact || c.extra ? `📱 <b>${esc(c.contact || c.extra)}</b> · ` : ''}
-                ${c.amount > 0 ? `💰 <b>${formatMoney(c.amount, cur)}</b> ${cur !== dispCur ? `(≈ ${formatMoney(convertMoney(c.amount, cur, dispCur), dispCur)})` : ''} · ` : ''}
+                ${c.amount > 0 ? `💰 <b>${formatMoney(c.amount, cur)}</b> · ` : ''}
                 <span>Добавлен: ${dateFmt(c.date)}</span>
               </div>
               ${c.note ? `<div style="font-size:12.5px;color:var(--espresso);margin-top:5px">${esc(c.note)}</div>` : ''}
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <select class="crm-status-select" data-crm-status="${c.id}" aria-label="Изменить статус">
+              <select class="crm-status-select" data-crm-status="${c.id}">
                 ${CRM_STATUSES.map(s => `<option value="${s.label}" ${c.status === s.label ? 'selected' : ''}>${s.label}</option>`).join('')}
               </select>
-              <button class="btn btn-light btn-sm" data-edit-crm="${c.id}">✎ Изменить</button>
-              <button class="delete" data-delete="clients" data-id="${c.id}" title="Удалить">×</button>
+              <button class="btn btn-light btn-sm" data-edit-crm="${c.id}">✎</button>
+              <button class="delete" data-delete="clients" data-id="${c.id}">×</button>
             </div>
           </div>`;
-      }).join('') : empty('Клиентов по выбранному фильтру пока нет. Нажмите «+ Новый клиент», чтобы добавить первую заявку.'))}
+      }).join('') : empty('Клиентов нет.'))}
     `;
   } else if (page === 'goals' || page === 'projects') {
     const cfg = {
-      goals: ['Цели', 'Большие ориентиры и результаты, к которым ты хочешь прийти.', '＋ Новая цель'],
-      projects: ['Проекты', 'Отдельные инициативы и запуски с понятным результатом.', '＋ Новый проект']
+      goals: ['Цели', 'Большие ориентиры.', '＋ Новая цель'],
+      projects: ['Проекты', 'Инициативы и запуски.', '＋ Новый проект']
     }[page];
     html = pageHeader('WORKSPACE', cfg[0], cfg[1]) + `
       <div class="toolbar">
@@ -1728,7 +1647,7 @@ function render() {
       ${card('Все записи', rowsGoalProject(page))}
     `;
   } else if (page === 'notes') {
-    html = pageHeader('IDEA GARDEN', 'Заметки и идеи', 'Сохраняй мысли, наблюдения, идеи для контента и будущих проектов.') + `
+    html = pageHeader('IDEA GARDEN', 'Заметки и идеи', 'Сохраняй мысли и наблюдения.') + `
       <div class="toolbar">
         <button class="btn" data-action="add-note">＋ Новая заметка</button>
       </div>
@@ -1742,11 +1661,11 @@ function render() {
         </div>`).join('') : empty())}
     `;
   } else if (page === 'reflection') {
-    html = pageHeader('SLOW DOWN', 'Рефлексия', 'Остановись на несколько минут, чтобы заметить, что получилось, и выбрать следующий шаг.') + `
+    html = pageHeader('SLOW DOWN', 'Рефлексия', 'Остановись на несколько минут.') + `
       <div class="toolbar">
         <button class="btn" data-action="add-reflection">＋ Итоги дня</button>
       </div>
-      ${card('История рефлексии', db.reflections.length ? db.reflections.map(r => `
+      ${card('История', db.reflections.length ? db.reflections.map(r => `
         <div class="list-row">
           <div class="list-row-main">
             <div class="list-row-title">${dateFmt(r.date)}</div>
@@ -1781,24 +1700,20 @@ function render() {
     const bizTotals = calcTotals(db.finance.filter(x => !(x.scope === 'personal' || x.biz === 'Личное')));
     const personalTotals = calcTotals(db.finance.filter(x => x.scope === 'personal' || x.biz === 'Личное'));
 
-    html = pageHeader(
-      'MONEY & CLARITY',
-      'Финансы',
-      'Раздельный учёт личных и бизнес-финансов в VND ₫, RUB ₽ и USD $ с автоматическим пересчётом общего итога.'
-    ) + `
+    html = pageHeader('MONEY & CLARITY', 'Финансы', 'Раздельный учёт личных и бизнес-финансов.') + `
       <div class="toolbar" style="justify-content:space-between">
         <div class="tabs">
-          <button class="tab-btn ${financeScopeTab === 'all' ? 'active' : ''}" data-fin-tab="all">Все финансы</button>
-          <button class="tab-btn ${financeScopeTab === 'business' ? 'active' : ''}" data-fin-tab="business">Бизнес (все направления)</button>
+          <button class="tab-btn ${financeScopeTab === 'all' ? 'active' : ''}" data-fin-tab="all">Все</button>
+          <button class="tab-btn ${financeScopeTab === 'business' ? 'active' : ''}" data-fin-tab="business">Бизнес</button>
           <button class="tab-btn ${financeScopeTab === 'personal' ? 'active' : ''}" data-fin-tab="personal">Личное</button>
         </div>
 
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span style="font-size:12px;font-weight:700;color:var(--matcha-deep)">Итог в валюте:</span>
+          <span style="font-size:12px;font-weight:700;color:var(--matcha-deep)">Валюта:</span>
           <div class="tabs">
             ${['USD', 'VND', 'RUB'].map(c => `
               <button class="tab-btn ${dispCur === c ? 'active' : ''}" data-disp-cur="${c}">
-                ${c} ${CURRENCY_META[c].symbol}
+                ${c}
               </button>`).join('')}
           </div>
           <button class="btn btn-light btn-sm" data-action="edit-rates">⚙ Курсы</button>
@@ -1806,10 +1721,10 @@ function render() {
       </div>
 
       <div class="grid stats">
-        ${stat('Доходы (' + (financeScopeTab === 'all' ? 'всего' : financeScopeTab === 'business' ? 'бизнес' : 'личное') + ')', formatMoney(currentTotals.inc, dispCur), 'Пересчитано в ' + dispCur, '')}
-        ${stat('Расходы', formatMoney(currentTotals.exp, dispCur), 'Пересчитано в ' + dispCur, 'accent-strawberry')}
-        ${stat('Чистый баланс', formatMoney(currentTotals.net, dispCur), 'Доходы минус расходы', 'accent-lightblue')}
-        ${stat('Баланс Бизнес / Личное', `${formatMoney(bizTotals.net, dispCur)}`, `Личное: ${formatMoney(personalTotals.net, dispCur)}`, 'accent-coffee')}
+        ${stat('Доходы', formatMoney(currentTotals.inc, dispCur), '', '')}
+        ${stat('Расходы', formatMoney(currentTotals.exp, dispCur), '', 'accent-strawberry')}
+        ${stat('Чистый баланс', formatMoney(currentTotals.net, dispCur), '', 'accent-lightblue')}
+        ${stat('Бизнес / Личное', `${formatMoney(bizTotals.net, dispCur)}`, `Лич: ${formatMoney(personalTotals.net, dispCur)}`, 'accent-coffee')}
       </div>
 
       <div class="toolbar">
@@ -1843,11 +1758,7 @@ function render() {
             </div>
             <button class="delete" data-delete="finance" data-id="${x.id}">×</button>
           </div>`;
-      }).join('') : empty('Операций в этой категории пока нет. Нажмите «+ Добавить операцию».'))}
-
-      <div class="notice">
-        💱 <b>Текущие курсы пересчёта:</b> 1 USD = <b>${Number(rates.VND).toLocaleString('ru-RU')} ₫</b> (VND) · 1 USD = <b>${Number(rates.RUB).toLocaleString('ru-RU')} ₽</b> (RUB). Вы можете изменить курсы в любой момент кнопкой «⚙ Курсы».
-      </div>
+      }).join('') : empty('Операций нет.'))}
     `;
   } else if (page === 'analytics') {
     const total = all.length;
@@ -1856,45 +1767,22 @@ function render() {
     const dispCur = db.settings.displayCurrency;
     const totalInc = db.finance.filter(f => f.type === 'Доход').reduce((s, f) => s + convertMoney(f.amount, f.currency || 'USD', dispCur), 0);
 
-    html = pageHeader('INSIGHTS', 'Аналитика', 'Общая картина: как распределяются задачи, клиенты и финансы по направлениям.') + `
+    html = pageHeader('INSIGHTS', 'Аналитика', 'Общая картина.') + `
       <div class="grid stats">
-        ${stat('Всего задач', total, 'Во всех направлениях', 'accent-coffee')}
-        ${stat('Выполнено', completed, 'Завершённые задачи', '')}
-        ${stat('Прогресс задач', rate + '%', 'Доля выполненного', 'accent-strawberry')}
-        ${stat('Общий доход', formatMoney(totalInc, dispCur), 'В валюте ' + dispCur, 'accent-lightblue')}
-      </div>
-      <div class="grid columns">
-        ${card('Выполнение задач', `
-          <div class="stat-value">${rate}%</div>
-          <div class="progress"><span style="width:${rate}%"></span></div>
-          <p class="task-meta" style="margin-top:12px">${completed} из ${total} задач выполнено</p>
-        `)}
-        ${card('Активность по направлениям', businesses.map(b => `
-          <div class="business-tile">
-            <div class="biz-icon">${b.icon}</div>
-            <div style="flex:1">
-              <div class="biz-name">${b.name}</div>
-              <div class="biz-desc">${all.filter(t => t.biz === b.name).length} задач · ${db.clients.filter(c => c.biz === b.name).length} клиентов</div>
-            </div>
-          </div>`).join(''))}
+        ${stat('Всего задач', total, '', 'accent-coffee')}
+        ${stat('Выполнено', completed, '', '')}
+        ${stat('Прогресс', rate + '%', '', 'accent-strawberry')}
+        ${stat('Доход', formatMoney(totalInc, dispCur), '', 'accent-lightblue')}
       </div>
     `;
   } else if (page === 'archive') {
-    html = pageHeader('STORED', 'Архив', 'Завершённые задачи и сохранённая история.') +
-      card('Выполненные задачи', taskRows(done));
+    html = pageHeader('STORED', 'Архив', 'Завершённые задачи.') + card('Выполненные задачи', taskRows(done));
   }
 
   $('#content').innerHTML = html;
 }
 
-function refreshTaskFilter() {
-  const biz = $('#task-filter')?.value || '';
-  const status = $('#status-filter')?.value || '';
-  const list = db.tasks.filter(t => (!biz || t.biz === biz) && (!status || (status === 'done' ? t.done : !t.done)));
-  $('#task-list').innerHTML = taskRows(list);
-}
-
-// Единый обработчик кликов
+// Обработчики интерфейса
 document.addEventListener('click', e => {
   const nav = e.target.closest('[data-page]');
   if (nav) { go(nav.dataset.page); return; }
@@ -2015,9 +1903,6 @@ document.addEventListener('change', e => {
     render();
     return;
   }
-  if (e.target.id === 'task-filter' || e.target.id === 'status-filter') {
-    refreshTaskFilter();
-  }
 });
 
 $('#menuBtn').addEventListener('click', () => {
@@ -2034,13 +1919,11 @@ $('#modal').addEventListener('click', e => {
 });
 
 $('#today').textContent = new Date().toLocaleDateString('ru-RU', {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric'
+  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
 });
 
-render();
+// Инициализация при загрузке страницы
+checkAuth();
 </script>
 </body>
 </html>
