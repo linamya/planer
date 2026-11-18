@@ -349,7 +349,8 @@ h1, h2, h3, p { margin-top: 0; }
 .task-info { flex: 1; min-width: 0; }
 .task-name { font-size: 15px; color: var(--espresso); font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
 .task.done .task-name { text-decoration: line-through; color: var(--muted); }
-.task-note-preview { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.task-note-preview { font-size: 13px; color: var(--muted); margin-top: 4px; white-space: pre-wrap; }
+.note-body-text { white-space: pre-wrap; line-height: 1.7; overflow-wrap: anywhere; }
 .task-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); margin-top: 8px; }
 
 .tag {
@@ -516,6 +517,7 @@ h1, h2, h3, p { margin-top: 0; }
       <button class="nav" data-page="goals"><span class="ico">◎</span>Цели</button>
       <button class="nav" data-page="habits"><span class="ico">↻</span>Привычки</button>
       <button class="nav" data-page="notes"><span class="ico">✎</span>Заметки и идеи</button>
+      <button class="nav" data-page="content"><span class="ico">▤</span>Контент</button>
       <button class="nav" data-page="reflection"><span class="ico">♡</span>Рефлексия</button>
     </div>
 
@@ -538,6 +540,7 @@ h1, h2, h3, p { margin-top: 0; }
       <div class="nav-label">Обзор</div>
       <button class="nav" data-page="analytics"><span class="ico">▥</span>Аналитика</button>
       <button class="nav" data-page="archive"><span class="ico">▱</span>Архив</button>
+      <button class="nav" data-page="trash"><span class="ico">♲</span>Корзина</button>
     </div>
 
     <div class="side-bottom">
@@ -802,6 +805,7 @@ let financeScopeTab = 'all';
 let financeBizFilter = '';
 let crmBizFilter = '';
 let crmStatusFilter = '';
+let selectedContentChannel = 'ig-global';
 
 function openModal(title, body) {
   $('#modalTitle').textContent = title;
@@ -858,75 +862,54 @@ function taskRows(arr) {
             <span>📅 ${dateFmt(t.date)}</span>
           </div>
         </div>
+        <button class="btn btn-light btn-sm" data-edit-task="${t.id}" aria-label="Редактировать">✎</button>
         <button class="delete" data-delete="tasks" data-id="${t.id}" aria-label="Удалить">×</button>
       </div>`;
   }).join('');
 }
 
-function taskForm(biz = 'Личное') {
+function taskForm(biz = 'Личное', existing = null) {
   return `
     <div class="form-grid">
-      <div class="full">
-        <label class="field-label">Название задачи</label>
-        <input class="field" id="f-name" placeholder="Например: Подготовить макет приглашения" required>
-      </div>
-      <div>
-        <label class="field-label">Направление</label>
-        <select class="field" id="f-biz">
-          <option ${biz === 'Личное' ? 'selected' : ''}>Личное</option>
-          ${businesses.map(b => `<option value="${b.name}" ${biz === b.name ? 'selected' : ''}>${b.name}</option>`).join('')}
-        </select>
-      </div>
-      <div>
-        <label class="field-label">Приоритет</label>
-        <select class="field" id="f-priority">
-          <option>Средний</option>
-          <option>Высокий</option>
-          <option>Низкий</option>
-        </select>
-      </div>
-      <div>
-        <label class="field-label">Дата</label>
-        <input class="field" type="date" id="f-date" value="${TODAY}">
-      </div>
-      <div>
-        <label class="field-label">Статус</label>
-        <select class="field" id="f-status">
-          <option>В работе</option>
-          <option>Ожидает</option>
-        </select>
-      </div>
-      <div class="full">
-        <label class="field-label">Комментарий / детали</label>
-        <textarea class="field" id="f-note" rows="2" placeholder="Ссылки, заметки или уточнения"></textarea>
-      </div>
+      <div class="full"><label class="field-label">Название задачи</label>
+        <input class="field" id="f-name" value="${esc(existing?.name || '')}" placeholder="Например: Подготовить макет приглашения" required></div>
+      <div><label class="field-label">Направление</label><select class="field" id="f-biz">
+        <option ${(!existing?.biz && biz === 'Личное') || existing?.biz === 'Личное' ? 'selected' : ''}>Личное</option>
+        ${businesses.map(b => `<option value="${b.name}" ${(existing?.biz || biz) === b.name ? 'selected' : ''}>${b.name}</option>`).join('')}
+      </select></div>
+      <div><label class="field-label">Приоритет</label><select class="field" id="f-priority">
+        ${['Средний','Высокий','Низкий'].map(v => `<option ${(existing?.priority || 'Средний') === v ? 'selected' : ''}>${v}</option>`).join('')}
+      </select></div>
+      <div><label class="field-label">Дата</label><input class="field" type="date" id="f-date" value="${esc(existing?.date || TODAY)}"></div>
+      <div><label class="field-label">Статус</label><select class="field" id="f-status">
+        <option ${existing?.status !== 'Ожидает' ? 'selected' : ''}>В работе</option><option ${existing?.status === 'Ожидает' ? 'selected' : ''}>Ожидает</option>
+      </select></div>
+      <div class="full"><label class="field-label">Комментарий / детали</label>
+        <textarea class="field" id="f-note" rows="4" placeholder="Ссылки, заметки или уточнения">${esc(existing?.note || '')}</textarea></div>
     </div>
-    <div style="margin-top:18px">
-      <button class="btn" id="saveTask">Сохранить задачу</button>
-    </div>`;
+    <div style="margin-top:18px"><button class="btn" id="saveTask">${existing ? 'Сохранить изменения' : 'Сохранить задачу'}</button></div>`;
 }
-
 function addTask(biz) {
   openModal('Новая задача', taskForm(biz || 'Личное'));
   setTimeout(() => $('#f-name')?.focus(), 50);
 }
-
+function editTask(id) {
+  const existing = db.tasks.find(t => t.id === Number(id));
+  if (!existing) return;
+  openModal('Редактировать задачу', taskForm(existing.biz, existing));
+  $('#saveTask').dataset.editId = existing.id;
+}
 function saveTask() {
   const name = $('#f-name').value.trim();
   if (!name) { $('#f-name').focus(); return; }
-  db.tasks.unshift({
-    id: Date.now(),
-    name,
-    biz: $('#f-biz').value,
-    priority: $('#f-priority').value,
-    date: $('#f-date').value,
-    note: $('#f-note').value.trim(),
-    done: false,
-    status: $('#f-status').value
-  });
-  save();
-  closeModal();
-  render();
+  const editId = $('#saveTask').dataset.editId;
+  const old = editId ? db.tasks.find(t => t.id === Number(editId)) : null;
+  const payload = { ...(old || {}), id: old ? old.id : Date.now(), name,
+    biz: $('#f-biz').value, priority: $('#f-priority').value, date: $('#f-date').value,
+    note: $('#f-note').value, done: old ? old.done : false, status: $('#f-status').value };
+  if (old) db.tasks = db.tasks.map(t => t.id === old.id ? payload : t);
+  else db.tasks.unshift(payload);
+  save(); closeModal(); render();
 }
 
 function getLast7Days() {
@@ -1142,38 +1125,92 @@ function addClientModal(editId = null) {
   };
 }
 
+function noteForm(existing = null) {
+  return `
+    <label class="field-label">Заголовок</label><input class="field" id="note-title" value="${esc(existing?.title || '')}" placeholder="Название заметки или идеи">
+    <div style="height:12px"></div><label class="field-label">Категория</label>
+    <select class="field" id="note-cat">${['Идея','Работа','Личное','Контент'].map(v => `<option ${(existing?.category || 'Идея') === v ? 'selected' : ''}>${v}</option>`).join('')}</select>
+    <div style="height:12px"></div><label class="field-label">Текст</label>
+    <textarea class="field" id="note-body" rows="7" placeholder="Запишите мысль...">${esc(existing?.body || '')}</textarea>
+    <div style="height:16px"></div><button class="btn" id="saveNote">${existing ? 'Сохранить изменения' : 'Сохранить заметку'}</button>`;
+}
 function addNote() {
-  openModal('Новая заметка', `
-    <label class="field-label">Заголовок</label>
-    <input class="field" id="note-title" placeholder="Название заметки или идеи">
-    <div style="height:12px"></div>
-    <label class="field-label">Категория</label>
-    <select class="field" id="note-cat">
-      <option>Идея</option>
-      <option>Работа</option>
-      <option>Личное</option>
-      <option>Контент</option>
-    </select>
-    <div style="height:12px"></div>
-    <label class="field-label">Текст</label>
-    <textarea class="field" id="note-body" rows="5" placeholder="Запишите мысль..."></textarea>
-    <div style="height:16px"></div>
-    <button class="btn" id="saveNote">Сохранить заметку</button>
-  `);
-  $('#saveNote').onclick = () => {
-    const title = $('#note-title').value.trim();
-    if (!title) { $('#note-title').focus(); return; }
-    db.notes.unshift({
-      id: Date.now(),
-      title,
-      category: $('#note-cat').value,
-      body: $('#note-body').value.trim(),
-      date: TODAY
-    });
-    save();
-    closeModal();
-    render();
+  openModal('Новая заметка', noteForm());
+  $('#saveNote').onclick = () => saveNote();
+}
+function editNote(id) {
+  const existing = db.notes.find(n => n.id === Number(id));
+  if (!existing) return;
+  openModal('Редактировать заметку', noteForm(existing));
+  $('#saveNote').onclick = () => saveNote(existing.id);
+}
+function saveNote(editId = null) {
+  const title = $('#note-title').value.trim();
+  if (!title) { $('#note-title').focus(); return; }
+  const old = editId ? db.notes.find(n => n.id === Number(editId)) : null;
+  const payload = { ...(old || {}), id: old ? old.id : Date.now(), title,
+    category: $('#note-cat').value, body: $('#note-body').value, date: old?.date || TODAY };
+  if (old) db.notes = db.notes.map(n => n.id === old.id ? payload : n);
+  else db.notes.unshift(payload);
+  save(); closeModal(); render();
+}
+
+
+const CONTENT_CHANNELS = [
+  ['ig-global','Instagram — международные пригласительные'],
+  ['threads-global','Threads — международные пригласительные'],
+  ['ig-russia','Instagram — РФ пригласительные'],
+  ['threads-russia','Threads — РФ пригласительные'],
+  ['ig-print','Instagram — типография'],
+  ['threads-print','Threads — типография'],
+  ['pinterest-lymi','Pinterest — LYMI']
+];
+function contentItemModal(channel, type, item = null) {
+  const isTask = type === 'task';
+  openModal(item ? 'Редактировать запись' : (isTask ? 'Новая задача для контента' : 'Новая заметка для контента'), `
+    <label class="field-label">${isTask ? 'Название задачи' : 'Заголовок заметки'}</label>
+    <input class="field" id="ci-title" value="${esc(item?.title || '')}" placeholder="${isTask ? 'Например: Подготовить публикацию' : 'Идея, тема или наблюдение'}">
+    <div style="height:12px"></div><label class="field-label">${isTask ? 'Детали задачи' : 'Текст заметки'}</label>
+    <textarea class="field" id="ci-body" rows="7">${esc(item?.body || '')}</textarea>
+    ${isTask ? `<div style="height:12px"></div><label class="field-label">Срок</label><input class="field" id="ci-date" type="date" value="${esc(item?.date || TODAY)}">` : ''}
+    <div style="height:16px"></div><button class="btn" id="saveContentItem">${item ? 'Сохранить изменения' : 'Сохранить'}</button>`);
+  $('#saveContentItem').onclick = () => {
+    const title = $('#ci-title').value.trim();
+    if (!title) { $('#ci-title').focus(); return; }
+    const payload = { ...(item || {}), id: item?.id || Date.now(), channel, type, title,
+      body: $('#ci-body').value, date: isTask ? ($('#ci-date').value || TODAY) : (item?.date || TODAY), done: item?.done || false };
+    if (item) db.contentItems = db.contentItems.map(x => x.id === item.id ? payload : x);
+    else db.contentItems.unshift(payload);
+    save(); closeModal(); render();
   };
+}
+function contentPage() {
+  const channel = CONTENT_CHANNELS.find(x => x[0] === selectedContentChannel) || CONTENT_CHANNELS[0];
+  const items = (db.contentItems || []).filter(x => x.channel === channel[0]);
+  const tasks = items.filter(x => x.type === 'task'), notes = items.filter(x => x.type === 'note');
+  return pageHeader('CONTENT WORKSPACE', 'Контент', 'Задачи и заметки отдельно для каждого канала продвижения.') + `
+    <div class="card" style="margin-bottom:16px"><label class="field-label">Канал</label>
+      <select class="field" id="content-channel">${CONTENT_CHANNELS.map(x => `<option value="${x[0]}" ${x[0] === channel[0] ? 'selected' : ''}>${x[1]}</option>`).join('')}</select>
+      <div class="toolbar" style="margin:16px 0 0"><button class="btn" data-content-add="task">＋ Добавить задачу</button><button class="btn btn-light" data-content-add="note">＋ Добавить заметку</button></div>
+    </div>
+    ${card('Задачи', tasks.length ? tasks.map(x => `<div class="list-row">
+      <input class="check" type="checkbox" data-content-toggle="${x.id}" ${x.done ? 'checked' : ''}>
+      <div class="list-row-main"><div class="list-row-title" style="${x.done ? 'text-decoration:line-through;opacity:.6' : ''}">${esc(x.title)}</div>
+      <div class="list-row-meta">${dateFmt(x.date)}${x.body ? `<div class="note-body-text">${esc(x.body)}</div>` : ''}</div></div>
+      <button class="btn btn-light btn-sm" data-content-edit="${x.id}">✎</button><button class="delete" data-delete="contentItems" data-id="${x.id}">×</button></div>`).join('') : empty('Задач для этого канала пока нет.'))}
+    <div style="height:16px"></div>
+    ${card('Заметки и идеи', notes.length ? notes.map(x => `<div class="list-row"><div class="list-row-main"><div class="list-row-title">${esc(x.title)}</div>
+      <div class="list-row-meta">${dateFmt(x.date)}<div class="note-body-text">${esc(x.body || '')}</div></div></div>
+      <button class="btn btn-light btn-sm" data-content-edit="${x.id}">✎</button><button class="delete" data-delete="contentItems" data-id="${x.id}">×</button></div>`).join('') : empty('Заметок для этого канала пока нет.'))}`;
+}
+function trashPage() {
+  const entries = db.trash || [];
+  return pageHeader('RECYCLE BIN', 'Корзина', 'Удалённые записи можно восстановить или удалить окончательно.') +
+    (entries.length ? entries.slice().reverse().map(x => `<div class="list-row">
+      <div class="list-row-main"><div class="list-row-title">${esc(x.item?.name || x.item?.title || 'Запись')}</div>
+      <div class="list-row-meta">${esc(x.collection)} · ${x.deletedAt ? new Date(x.deletedAt).toLocaleString('ru-RU') : ''}</div></div>
+      <button class="btn btn-light btn-sm" data-restore="${x.trashId}">Восстановить</button>
+      <button class="delete" data-trash-permanent="${x.trashId}" title="Удалить навсегда">×</button></div>`).join('') : empty('Корзина пуста.'));
 }
 
 function addFinance() {
@@ -1648,18 +1685,16 @@ function render() {
     `;
   } else if (page === 'notes') {
     html = pageHeader('IDEA GARDEN', 'Заметки и идеи', 'Сохраняй мысли и наблюдения.') + `
-      <div class="toolbar">
-        <button class="btn" data-action="add-note">＋ Новая заметка</button>
-      </div>
+      <div class="toolbar"><button class="btn" data-action="add-note">＋ Новая заметка</button></div>
       ${card('Моя коллекция', db.notes.length ? db.notes.map(n => `
-        <div class="list-row">
-          <div class="list-row-main">
-            <div class="list-row-title">${esc(n.title)} <span class="tag strawberry" style="margin-left:6px">${esc(n.category)}</span></div>
-            <div class="list-row-meta">${dateFmt(n.date)}${n.body ? `<br><span style="color:var(--matcha-deep)">${esc(n.body)}</span>` : ''}</div>
-          </div>
-          <button class="delete" data-delete="notes" data-id="${n.id}">×</button>
-        </div>`).join('') : empty())}
+        <div class="list-row"><div class="list-row-main"><div class="list-row-title">${esc(n.title)} <span class="tag strawberry" style="margin-left:6px">${esc(n.category)}</span></div>
+        <div class="list-row-meta">${dateFmt(n.date)}${n.body ? `<div class="note-body-text" style="color:var(--matcha-deep)">${esc(n.body)}</div>` : ''}</div></div>
+        <button class="btn btn-light btn-sm" data-edit-note="${n.id}">✎</button><button class="delete" data-delete="notes" data-id="${n.id}">×</button></div>`).join('') : empty())}
     `;
+  } else if (page === 'content') {
+    html = contentPage();
+  } else if (page === 'trash') {
+    html = trashPage();
   } else if (page === 'reflection') {
     html = pageHeader('SLOW DOWN', 'Рефлексия', 'Остановись на несколько минут.') + `
       <div class="toolbar">
@@ -1824,6 +1859,24 @@ document.addEventListener('click', e => {
     return;
   }
 
+  const editTaskBtn = e.target.closest('[data-edit-task]');
+  if (editTaskBtn) { editTask(editTaskBtn.dataset.editTask); return; }
+  const editNoteBtn = e.target.closest('[data-edit-note]');
+  if (editNoteBtn) { editNote(editNoteBtn.dataset.editNote); return; }
+  const contentAdd = e.target.closest('[data-content-add]');
+  if (contentAdd) { contentItemModal(selectedContentChannel, contentAdd.dataset.contentAdd); return; }
+  const contentEdit = e.target.closest('[data-content-edit]');
+  if (contentEdit) { const item = db.contentItems.find(x => x.id === Number(contentEdit.dataset.contentEdit)); if (item) contentItemModal(item.channel, item.type, item); return; }
+  const restore = e.target.closest('[data-restore]');
+  if (restore) {
+    const entry = db.trash.find(x => String(x.trashId) === restore.dataset.restore);
+    if (entry) { db[entry.collection] = db[entry.collection] || []; db[entry.collection].push(entry.item);
+      db.trash = db.trash.filter(x => String(x.trashId) !== restore.dataset.restore); save(); render(); }
+    return;
+  }
+  const permanent = e.target.closest('[data-trash-permanent]');
+  if (permanent) { db.trash = db.trash.filter(x => String(x.trashId) !== permanent.dataset.trashPermanent); save(); render(); return; }
+
   const editCrm = e.target.closest('[data-edit-crm]');
   if (editCrm) {
     addClientModal(Number(editCrm.dataset.editCrm));
@@ -1849,9 +1902,13 @@ document.addEventListener('click', e => {
   if (del) {
     const k = del.dataset.delete;
     const id = Number(del.dataset.id);
-    db[k] = (db[k] || []).filter(x => x.id !== id);
-    save();
-    render();
+    const removed = (db[k] || []).find(x => x.id === id);
+    if (removed) {
+      db.trash = db.trash || [];
+      db.trash.push({ trashId: `${Date.now()}-${Math.random().toString(36).slice(2,7)}`, collection: k, item: removed, deletedAt: new Date().toISOString() });
+      db[k] = db[k].filter(x => x.id !== id);
+    }
+    save(); render();
     return;
   }
 
@@ -1861,6 +1918,13 @@ document.addEventListener('click', e => {
 });
 
 document.addEventListener('change', e => {
+  if (e.target.matches('[data-content-toggle]')) {
+    const item = db.contentItems.find(x => x.id === Number(e.target.dataset.contentToggle));
+    if (item) item.done = e.target.checked;
+    save(); render(); return;
+  }
+  if (e.target.id === 'content-channel') { selectedContentChannel = e.target.value; render(); return; }
+
   if (e.target.matches('[data-toggle-task]')) {
     const t = db.tasks.find(x => x.id === Number(e.target.dataset.toggleTask));
     if (t) t.done = e.target.checked;
