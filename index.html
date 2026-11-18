@@ -624,7 +624,9 @@ const defaultDB = {
   habits: [],
   clients: [],
   projects: [],
+  contentItems: [],
   reflections: [],
+  trash: [],
   settings: {
     displayCurrency: 'USD',
     habitGuideOpen: true,
@@ -685,10 +687,8 @@ async function loadUserData() {
     }
 
     if (data && data.data && Object.keys(data.data).length > 0) {
-      // Данные в облаке есть — используем их
       db = mergeDB(defaultDB, data.data);
     } else {
-      // В облаке данных нет. Проверим локальные данные (миграция при первом входе)
       const rawStr = localStorage.getItem('myspace_v2') || localStorage.getItem('myspace_v3') || '{}';
       let localParsed = {};
       try { localParsed = JSON.parse(rawStr); } catch(err){}
@@ -698,7 +698,6 @@ async function loadUserData() {
       } else {
         db = JSON.parse(JSON.stringify(defaultDB));
       }
-      // Сразу сохраняем текущие данные в облако
       await saveToCloudImmediate();
     }
     updateSyncStatus('saved', '✓ Сохранено в облаке');
@@ -740,10 +739,8 @@ function mergeDB(def, raw) {
 }
 
 function save() {
-  // Локальный кэш
   localStorage.setItem('myspace_v2', JSON.stringify(db));
   
-  // Автоматическая отправка в облако с дебаунсом (защита от частых запросов)
   updateSyncStatus('syncing', '🔄 Синхронизация...');
   if (saveTimeout) clearTimeout(saveTimeout);
   saveTimeout = setTimeout(async () => {
@@ -1040,6 +1037,7 @@ function addGoalOrProject(kind) {
   $('#saveGP').onclick = () => {
     const name = $('#gp-name').value.trim();
     if (!name) { $('#gp-name').focus(); return; }
+    db[kind] = db[kind] || [];
     db[kind].unshift({
       id: Date.now(),
       name,
@@ -1155,7 +1153,6 @@ function saveNote(editId = null) {
   save(); closeModal(); render();
 }
 
-
 const CONTENT_CHANNELS = [
   ['ig-global','Instagram — международные пригласительные'],
   ['threads-global','Threads — международные пригласительные'],
@@ -1165,6 +1162,7 @@ const CONTENT_CHANNELS = [
   ['threads-print','Threads — типография'],
   ['pinterest-lymi','Pinterest — LYMI']
 ];
+
 function contentItemModal(channel, type, item = null) {
   const isTask = type === 'task';
   openModal(item ? 'Редактировать запись' : (isTask ? 'Новая задача для контента' : 'Новая заметка для контента'), `
@@ -1174,9 +1172,11 @@ function contentItemModal(channel, type, item = null) {
     <textarea class="field" id="ci-body" rows="7">${esc(item?.body || '')}</textarea>
     ${isTask ? `<div style="height:12px"></div><label class="field-label">Срок</label><input class="field" id="ci-date" type="date" value="${esc(item?.date || TODAY)}">` : ''}
     <div style="height:16px"></div><button class="btn" id="saveContentItem">${item ? 'Сохранить изменения' : 'Сохранить'}</button>`);
+  
   $('#saveContentItem').onclick = () => {
     const title = $('#ci-title').value.trim();
     if (!title) { $('#ci-title').focus(); return; }
+    db.contentItems = db.contentItems || [];
     const payload = { ...(item || {}), id: item?.id || Date.now(), channel, type, title,
       body: $('#ci-body').value, date: isTask ? ($('#ci-date').value || TODAY) : (item?.date || TODAY), done: item?.done || false };
     if (item) db.contentItems = db.contentItems.map(x => x.id === item.id ? payload : x);
@@ -1184,6 +1184,7 @@ function contentItemModal(channel, type, item = null) {
     save(); closeModal(); render();
   };
 }
+
 function contentPage() {
   const channel = CONTENT_CHANNELS.find(x => x[0] === selectedContentChannel) || CONTENT_CHANNELS[0];
   const items = (db.contentItems || []).filter(x => x.channel === channel[0]);
@@ -1203,6 +1204,7 @@ function contentPage() {
       <div class="list-row-meta">${dateFmt(x.date)}<div class="note-body-text">${esc(x.body || '')}</div></div></div>
       <button class="btn btn-light btn-sm" data-content-edit="${x.id}">✎</button><button class="delete" data-delete="contentItems" data-id="${x.id}">×</button></div>`).join('') : empty('Заметок для этого канала пока нет.'))}`;
 }
+
 function trashPage() {
   const entries = db.trash || [];
   return pageHeader('RECYCLE BIN', 'Корзина', 'Удалённые записи можно восстановить или удалить окончательно.') +
@@ -1338,6 +1340,7 @@ function addReflection() {
     </div>
   `);
   $('#saveReflect').onclick = () => {
+    db.reflections = db.reflections || [];
     db.reflections.unshift({
       id: Date.now(),
       date: TODAY,
@@ -1700,11 +1703,11 @@ function render() {
       <div class="toolbar">
         <button class="btn" data-action="add-reflection">＋ Итоги дня</button>
       </div>
-      ${card('История', db.reflections.length ? db.reflections.map(r => `
+      ${card('История', (db.reflections || []).length ? db.reflections.map(r => `
         <div class="list-row">
           <div class="list-row-main">
             <div class="list-row-title">${dateFmt(r.date)}</div>
-            <div class="list-row-meta">${r.answers.map(esc).filter(Boolean).join(' · ')}</div>
+            <div class="list-row-meta">${(r.answers || []).map(esc).filter(Boolean).join(' · ')}</div>
           </div>
           <button class="delete" data-delete="reflections" data-id="${r.id}">×</button>
         </div>`).join('') : empty())}
@@ -1866,7 +1869,7 @@ document.addEventListener('click', e => {
   const contentAdd = e.target.closest('[data-content-add]');
   if (contentAdd) { contentItemModal(selectedContentChannel, contentAdd.dataset.contentAdd); return; }
   const contentEdit = e.target.closest('[data-content-edit]');
-  if (contentEdit) { const item = db.contentItems.find(x => x.id === Number(contentEdit.dataset.contentEdit)); if (item) contentItemModal(item.channel, item.type, item); return; }
+  if (contentEdit) { const item = (db.contentItems || []).find(x => x.id === Number(contentEdit.dataset.contentEdit)); if (item) contentItemModal(item.channel, item.type, item); return; }
   const restore = e.target.closest('[data-restore]');
   if (restore) {
     const entry = db.trash.find(x => String(x.trashId) === restore.dataset.restore);
@@ -1919,6 +1922,7 @@ document.addEventListener('click', e => {
 
 document.addEventListener('change', e => {
   if (e.target.matches('[data-content-toggle]')) {
+    db.contentItems = db.contentItems || [];
     const item = db.contentItems.find(x => x.id === Number(e.target.dataset.contentToggle));
     if (item) item.done = e.target.checked;
     save(); render(); return;
@@ -1935,7 +1939,8 @@ document.addEventListener('change', e => {
 
   if (e.target.matches('[data-toggle-gp]')) {
     const [kind, idStr] = e.target.dataset.toggleGp.split(':');
-    const item = (db[kind] || []).find(x => x.id === Number(idStr));
+    db[kind] = db[kind] || [];
+    const item = db[kind].find(x => x.id === Number(idStr));
     if (item) item.done = e.target.checked;
     save();
     render();
