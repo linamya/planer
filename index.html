@@ -475,6 +475,24 @@ h1, h2, h3, p { margin-top: 0; }
   .form-grid { grid-template-columns: 1fr; }
   .form-grid .full { grid-column: auto; }
 }
+
+/* Цветовая система тем; настраиваемая палитра без изменения данных */
+body.theme-blue { --matcha-deep:#355675;--matcha-mid:#557894;--matcha:#829CB5;--matcha-soft:#e3ecf4;--espresso:#23394c;--almond:#eaf0f5;--almond-card:#f1f6fa;--almond-pure:#fff;--line:#ccdce9;--muted:#506676;--strawberry:#bdd9ed;--strawberry-soft:#e9f4fc;--lightblue:#b9cbea;--lightblue-soft:#e9effa; }
+body.theme-rose { --matcha-deep:#875064;--matcha-mid:#a46d7f;--matcha:#ba8e9f;--matcha-soft:#f6e6ed;--espresso:#51313d;--almond:#f8edf0;--almond-card:#fff6f8;--almond-pure:#fff;--line:#e9ccd5;--muted:#745964;--strawberry:#f2beca;--strawberry-soft:#fceaf0;--lightblue:#d4c3df;--lightblue-soft:#f2ebf5; }
+body.theme-lavender { --matcha-deep:#62547f;--matcha-mid:#817298;--matcha:#afa0c5;--matcha-soft:#eee9f7;--espresso:#403550;--almond:#f1edf7;--almond-card:#f9f6fd;--almond-pure:#fff;--line:#d9cfeb;--muted:#6d607a;--strawberry:#dbcbf2;--strawberry-soft:#f0e9fc;--lightblue:#c7d3f5;--lightblue-soft:#eaf0ff; }
+body.theme-sand { --matcha-deep:#826244;--matcha-mid:#a18465;--matcha:#bfa381;--matcha-soft:#f5ead8;--espresso:#493526;--almond:#f5ede1;--almond-card:#fcf6ed;--almond-pure:#fffdfa;--line:#e3d3bf;--muted:#776553;--strawberry:#e9c7a5;--strawberry-soft:#faeedf;--lightblue:#cdd6c6;--lightblue-soft:#edf1e8; }
+body.theme-dark { --matcha-deep:#849e89;--matcha-mid:#3d5b4b;--matcha:#a5b8a7;--matcha-soft:#3b4a40;--espresso:#eff4ef;--almond:#171f1b;--almond-card:#27332b;--almond-pure:#202c25;--line:#4d6052;--muted:#bdc9be;--strawberry:#d3aecc;--strawberry-soft:#503b4a;--lightblue:#a8bbd9;--lightblue-soft:#364454;--shadow:0 14px 34px rgba(0,0,0,.22); }
+body.theme-dark .field,body.theme-dark .crm-status-select { background:#29352e;color:#f0f4f0;border-color:#617466; }
+body.theme-dark .task:hover {background:#314035}
+body.theme-dark .task-name, body.theme-dark .list-row-title, body.theme-dark .page-heading {color:var(--espresso)}
+body.theme-dark .task.done {background:#29352e}
+body.theme-dark .check {background:#29352e}
+body.theme-dark .auth-card {background:#202c25}
+body.theme-dark .hero-mini-box {background:#2b4032}
+.theme-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:14px 0 24px}
+.theme-choice {padding:14px;border:2px solid var(--line);background:var(--almond-card);color:var(--espresso);border-radius:15px;text-align:left;font-weight:700}
+.theme-choice.selected {border-color:var(--matcha-deep);box-shadow:0 0 0 2px var(--matcha-soft)}
+.theme-dots {display:flex;gap:5px;margin-bottom:12px}.theme-dots i{display:block;width:22px;height:22px;border-radius:100%;border:1px solid #9995}
 </style>
 </head>
 <body>
@@ -495,6 +513,11 @@ h1, h2, h3, p { margin-top: 0; }
         <input class="field" type="password" id="auth-password" placeholder="••••••••" required>
       </div>
       <button type="submit" class="btn btn-matcha" style="width: 100%; justify-content: center;">Войти в пространство</button>
+      <div style="display:flex;justify-content:center;gap:15px;flex-wrap:wrap;margin-top:16px">
+        <button type="button" class="subtle-link" id="auth-register">Регистрация</button>
+        <button type="button" class="subtle-link" id="auth-reset">Забыли пароль?</button>
+      </div>
+      <p id="auth-info" style="margin:14px 0 0;font-size:12px" aria-live="polite"></p>
     </form>
   </div>
 </div>
@@ -523,10 +546,7 @@ h1, h2, h3, p { margin-top: 0; }
 
     <div class="nav-group">
       <div class="nav-label">Мои направления</div>
-      <button class="nav" data-page="lymi-sites"><span class="ico">◇</span>LYMI · Сайты</button>
-      <button class="nav" data-page="lymi-print"><span class="ico">▤</span>LYMI · Типография</button>
-      <button class="nav" data-page="lymi-global"><span class="ico">↗</span>LYMI · Международный рынок</button>
-      <button class="nav" data-page="blog"><span class="ico">☼</span>Личный блог</button>
+      <div id="business-nav-items"></div>
     </div>
 
     <div class="nav-group">
@@ -534,6 +554,11 @@ h1, h2, h3, p { margin-top: 0; }
       <button class="nav" data-page="projects"><span class="ico">▧</span>Проекты</button>
       <button class="nav" data-page="crm"><span class="ico">♧</span>Клиенты и CRM</button>
       <button class="nav" data-page="finance"><span class="ico">＄</span>Финансы</button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Настройка</div>
+      <button class="nav" data-page="settings"><span class="ico">⚙</span>Мои настройки</button>
     </div>
 
     <div class="nav-group">
@@ -596,12 +621,70 @@ const TODAY = new Date().toLocaleDateString('en-CA');
 const dateFmt = d => d ? new Date(d + 'T12:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : 'Без даты';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const businesses = [
+const DEFAULT_BUSINESSES = [
   { id: 'lymi-sites', name: 'LYMI — сайты', desc: 'Свадебные и event-приглашения, шаблоны и индивидуальные сайты', icon: '✧', tagClass: '' },
   { id: 'lymi-print', name: 'LYMI — типография', desc: 'Печатная продукция, фотокниги, полиграфия и заказы', icon: '❋', tagClass: 'espresso' },
   { id: 'lymi-global', name: 'LYMI — международный рынок', desc: 'Англоязычный рынок, международные клиенты и продвижение', icon: '✦', tagClass: 'lightblue' },
   { id: 'blog', name: 'Личный блог', desc: 'Контент, идеи, публикации и развитие личного бренда', icon: '☼', tagClass: 'strawberry' }
 ];
+
+let businesses = DEFAULT_BUSINESSES.map(b => ({...b}));
+const THEMES = [
+ ['matcha','Матча',['#4E5B31','#EFE1D5','#F9D1D9']],
+ ['blue','Небесная',['#355675','#eaf0f5','#bdd9ed']],
+ ['rose','Розовая',['#875064','#f8edf0','#f2beca']],
+ ['lavender','Лавандовая',['#62547f','#f1edf7','#dbcbf2']],
+ ['sand','Песочная',['#826244','#f5ede1','#e9c7a5']],
+ ['dark','Тёмная',['#171f1b','#3d5b4b','#d3aecc']]
+];
+function applyPreferences() {
+ businesses = Array.isArray(db.settings.businesses) ? db.settings.businesses : DEFAULT_BUSINESSES.map(b=>({...b}));
+ document.body.classList.remove(...THEMES.map(t=>'theme-'+t[0]));
+ const chosen = THEMES.some(t=>t[0]===db.settings.theme) ? db.settings.theme : 'matcha';
+ document.body.classList.add('theme-'+chosen);
+ renderBusinessNav();
+ if(typeof CONTENT_CHANNELS !== 'undefined') CONTENT_CHANNELS = Array.isArray(db.settings.contentChannels) ? db.settings.contentChannels.map(x=>[...x]) : DEFAULT_CONTENT_CHANNELS.map(x=>[...x]);
+ selectedContentChannel=CONTENT_CHANNELS[0]?.[0]||'';
+}
+function renderBusinessNav() {
+ const wrap = document.getElementById('business-nav-items');
+ if (!wrap) return;
+ wrap.innerHTML = businesses.map(b=>`<button class="nav" data-page="${esc(b.id)}"><span class="ico">${esc(b.icon||'◇')}</span>${esc(b.name)}</button>`).join('');
+}
+function settingsPage() {
+ const theme = db.settings.theme||'matcha';
+ return pageHeader('PERSONAL SETTINGS','Настройки','Настрой MY SPACE под себя. Эти изменения не затрагивают аккаунты других людей.')+`
+ <div class="card" style="margin-bottom:16px"><div class="card-head"><h3>Цветовая тема</h3></div>
+ <div class="theme-grid">${THEMES.map(t=>`<button class="theme-choice ${theme===t[0]?'selected':''}" data-theme="${t[0]}"><span class="theme-dots">${t[2].map(c=>`<i style="background:${c}"></i>`).join('')}</span>${t[1]}</button>`).join('')}</div></div>
+ <div class="card" style="margin-bottom:16px"><div class="card-head"><h3>Мои направления</h3><button class="btn btn-sm" data-add-business>＋ Добавить</button></div>
+ <p class="page-desc">Можно создавать и переименовывать направления. Переименование обновляет связанные записи, удаление направления не удаляет задачи.</p>
+ ${businesses.map(b=>`<div class="list-row"><span style="font-size:21px">${esc(b.icon||'◇')}</span><div class="list-row-main"><strong>${esc(b.name)}</strong><div class="list-row-meta">${esc(b.desc||'')}</div></div><button class="btn btn-light btn-sm" data-edit-business="${esc(b.id)}">✎</button><button class="delete" data-remove-business="${esc(b.id)}" title="Убрать направление">×</button></div>`).join('')||empty('Направлений пока нет.')}</div>
+ <div class="card" style="margin-bottom:16px"><div class="card-head"><h3>Каналы контента</h3><button class="btn btn-sm" data-add-channel>＋ Добавить</button></div>
+ ${CONTENT_CHANNELS.map(x=>`<div class="list-row"><div class="list-row-main"><strong>${esc(x[1])}</strong></div><button class="btn btn-light btn-sm" data-edit-channel="${esc(x[0])}">✎</button><button class="delete" data-remove-channel="${esc(x[0])}">×</button></div>`).join('')||empty('Каналов пока нет.')}</div>
+ <div class="card"><div class="card-head"><h3>Аккаунт</h3></div><p>Вы вошли как <b>${esc(currentUser?.email||'')}</b></p><button class="btn btn-light" data-password-reset>Отправить письмо для смены пароля</button><p id="settings-message" style="margin-top:12px"></p></div>`;
+}
+function editBusinessModal(id=null) {
+ const b = businesses.find(x=>x.id===id);
+ openModal(b?'Редактировать направление':'Новое направление',`
+ <label class="field-label">Название направления</label><input class="field" id="biz-title" maxlength="80" value="${esc(b?.name||'')}" placeholder="Например: Мой магазин">
+ <div style="height:12px"></div><label class="field-label">Описание</label><textarea class="field" id="biz-desc" rows="3">${esc(b?.desc||'')}</textarea>
+ <div style="height:12px"></div><label class="field-label">Значок (один символ или эмодзи)</label><input class="field" id="biz-icon" maxlength="4" value="${esc(b?.icon||'◇')}">
+ <button class="btn" style="margin-top:15px" id="save-business">Сохранить</button>`);
+ document.getElementById('save-business').onclick = ()=>{
+ const name=document.getElementById('biz-title').value.trim();if(!name)return;
+ if(businesses.some(x=>x.name.toLowerCase()===name.toLowerCase()&&x.id!==id)){alert('Такое направление уже есть');return;}
+ const updated={id:b?.id||'biz-'+Date.now(),name,desc:document.getElementById('biz-desc').value.trim(),icon:document.getElementById('biz-icon').value.trim()||'◇',tagClass:b?.tagClass||''};
+ if(b){const old=b.name; businesses=businesses.map(x=>x.id===id?updated:x); if(old!==name){
+ ['tasks','notes','clients','projects','goals','finance'].forEach(k=>(db[k]||[]).forEach(x=>{if(x.biz===old)x.biz=name;}));
+ }} else businesses.push(updated);
+ db.settings.businesses=businesses;save();closeModal();applyPreferences();render();
+ };
+}
+function removeBusiness(id){
+ const b=businesses.find(x=>x.id===id);if(!b)return;
+ if(!confirm(`Убрать направление «${b.name}» из меню? Связанные задачи и записи останутся, но могут не отображаться в фильтрах, пока вы не назначите им другое направление.`))return;
+ businesses=businesses.filter(x=>x.id!==id); db.settings.businesses=businesses;save();applyPreferences(); if(page===id)page='settings';render();
+}
 
 const CRM_STATUSES = [
   { label: 'Новый лид', cls: 'lightblue' },
@@ -629,6 +712,7 @@ const defaultDB = {
   trash: [],
   settings: {
     displayCurrency: 'USD',
+    theme: 'matcha',
     habitGuideOpen: true,
     ratesToUSD: { USD: 1, RUB: 92, VND: 25400 }
   }
@@ -667,9 +751,30 @@ async function handleLogin(e) {
 }
 
 async function handleLogout() {
+  if(saveTimeout){clearTimeout(saveTimeout);saveTimeout=null;await saveToCloudImmediate();}
   await supabaseClient.auth.signOut();
   currentUser = null;
+  db = JSON.parse(JSON.stringify(defaultDB));
+  applyPreferences();
+  page='home'; taskBizFilter=''; taskStatusFilter='';
+  $('#content').innerHTML='';
   $('#auth-screen').style.display = 'flex';
+}
+
+async function registerAccount(){
+ const email=$('#auth-email').value.trim(),password=$('#auth-password').value;
+ const err=$('#auth-error'),info=$('#auth-info');err.style.display='none';info.textContent='';
+ if(!email||!password){err.textContent='Введите email и пароль';err.style.display='block';return;}
+ if(password.length<8){err.textContent='Пароль должен содержать не менее 8 символов';err.style.display='block';return;}
+ const {data,error}=await supabaseClient.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}});
+ if(error){err.textContent='Не удалось зарегистрироваться: '+error.message;err.style.display='block';return;}
+ if(data.session){currentUser=data.user;$('#auth-screen').style.display='none';await loadUserData();}
+ else info.textContent='Аккаунт создан. Проверь почту и подтверди email, затем войди.';
+}
+async function sendPasswordReset(email,output){
+ if(!email){output.textContent='Сначала укажи email';return;}
+ const {error}=await supabaseClient.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+ output.textContent=error?'Ошибка: '+error.message:'Если email зарегистрирован, письмо со ссылкой для восстановления отправлено.';
 }
 
 // Загрузка и сохранение данных с Supabase
@@ -686,20 +791,18 @@ async function loadUserData() {
       console.error('Ошибка загрузки из Supabase:', error);
     }
 
+    if (error && error.code !== 'PGRST116') {
+      throw error; // Never overwrite user data when loading failed.
+    }
     if (data && data.data && Object.keys(data.data).length > 0) {
       db = mergeDB(defaultDB, data.data);
     } else {
-      const rawStr = localStorage.getItem('myspace_v2') || localStorage.getItem('myspace_v3') || '{}';
-      let localParsed = {};
-      try { localParsed = JSON.parse(rawStr); } catch(err){}
-      
-      if (Object.keys(localParsed).length > 0) {
-        db = mergeDB(defaultDB, localParsed);
-      } else {
-        db = JSON.parse(JSON.stringify(defaultDB));
-      }
-      await saveToCloudImmediate();
+      // A new account starts empty. Never import another account's local data.
+      db = JSON.parse(JSON.stringify(defaultDB));
+      db.settings.businesses = []; // New accounts do not inherit LYMI.
+      db.settings.contentChannels = []; // No LYMI content categories for new accounts.
     }
+    applyPreferences();
     updateSyncStatus('saved', '✓ Сохранено в облаке');
     render();
   } catch (err) {
@@ -739,12 +842,13 @@ function mergeDB(def, raw) {
 }
 
 function save() {
-  localStorage.setItem('myspace_v2', JSON.stringify(db));
+  // Only cloud is authoritative: no shared browser-wide data cache.
   
   updateSyncStatus('syncing', '🔄 Синхронизация...');
   if (saveTimeout) clearTimeout(saveTimeout);
+  const savingUserId=currentUser?.id;
   saveTimeout = setTimeout(async () => {
-    await saveToCloudImmediate();
+    if(savingUserId && currentUser?.id===savingUserId) await saveToCloudImmediate();
   }, 1000);
 }
 
@@ -803,6 +907,8 @@ let financeBizFilter = '';
 let crmBizFilter = '';
 let crmStatusFilter = '';
 let selectedContentChannel = 'ig-global';
+let taskBizFilter = '';
+let taskStatusFilter = '';
 
 function openModal(title, body) {
   $('#modalTitle').textContent = title;
@@ -833,7 +939,7 @@ function empty(text = 'Пока здесь пусто. Добавьте перв
 
 function bizBadge(bizName) {
   const found = businesses.find(b => b.name === bizName);
-  if (!found) return `<span class="tag strawberry">Личное</span>`;
+  if (!found) return `<span class="tag strawberry">${esc(bizName || 'Личное')}</span>`;
   return `<span class="tag ${found.tagClass}">${esc(bizName)}</span>`;
 }
 
@@ -856,6 +962,7 @@ function taskRows(arr) {
           <div class="task-meta">
             ${bizBadge(t.biz)}
             ${prioBadge(t.priority || 'Средний')}
+            <span class="tag ${t.done ? '' : t.status === 'Ожидает' ? 'strawberry' : 'lightblue'}">${esc(t.done ? 'Выполнено' : (t.status||'В работе'))}</span>
             <span>📅 ${dateFmt(t.date)}</span>
           </div>
         </div>
@@ -1153,7 +1260,7 @@ function saveNote(editId = null) {
   save(); closeModal(); render();
 }
 
-const CONTENT_CHANNELS = [
+const DEFAULT_CONTENT_CHANNELS = [
   ['ig-global','Instagram — международные пригласительные'],
   ['threads-global','Threads — международные пригласительные'],
   ['ig-russia','Instagram — РФ пригласительные'],
@@ -1162,6 +1269,25 @@ const CONTENT_CHANNELS = [
   ['threads-print','Threads — типография'],
   ['pinterest-lymi','Pinterest — LYMI']
 ];
+
+let CONTENT_CHANNELS = DEFAULT_CONTENT_CHANNELS.map(x=>[...x]);
+function editChannelModal(id=null){
+ const old=CONTENT_CHANNELS.find(x=>x[0]===id);
+ openModal(old?'Изменить канал':'Новый канал', `<label class="field-label">Название канала или площадки</label><input class="field" id="channel-name" value="${esc(old?.[1]||'')}" placeholder="Например: Instagram — мой бренд"><button class="btn" style="margin-top:14px" id="save-channel">Сохранить</button>`);
+ $('#save-channel').onclick=()=>{
+  const name=$('#channel-name').value.trim();if(!name)return;
+  if(old)CONTENT_CHANNELS=CONTENT_CHANNELS.map(x=>x[0]===id?[id,name]:x);
+  else CONTENT_CHANNELS.push(['channel-'+Date.now(),name]);
+  db.settings.contentChannels=CONTENT_CHANNELS.map(x=>[...x]);save();closeModal();render();
+ };
+}
+function removeChannel(id){
+ const old=CONTENT_CHANNELS.find(x=>x[0]===id);if(!old)return;
+ if(!confirm('Скрыть канал «'+old[1]+'»? Его записи останутся в базе, но не будут отображаться, пока канал не будет восстановлен.'))return;
+ CONTENT_CHANNELS=CONTENT_CHANNELS.filter(x=>x[0]!==id);
+ db.settings.contentChannels=CONTENT_CHANNELS.map(x=>[...x]);
+ selectedContentChannel=CONTENT_CHANNELS[0]?.[0]||'';save();render();
+}
 
 function contentItemModal(channel, type, item = null) {
   const isTask = type === 'task';
@@ -1187,6 +1313,7 @@ function contentItemModal(channel, type, item = null) {
 
 function contentPage() {
   const channel = CONTENT_CHANNELS.find(x => x[0] === selectedContentChannel) || CONTENT_CHANNELS[0];
+  if(!channel) return pageHeader('CONTENT WORKSPACE','Контент','Создай каналы в настройках, чтобы вести задачи и заметки для каждой площадки.') + `<button class="btn" data-go="settings">Открыть настройки</button>`;
   const items = (db.contentItems || []).filter(x => x.channel === channel[0]);
   const tasks = items.filter(x => x.type === 'task'), notes = items.filter(x => x.type === 'note');
   return pageHeader('CONTENT WORKSPACE', 'Контент', 'Задачи и заметки отдельно для каждого канала продвижения.') + `
@@ -1511,6 +1638,8 @@ function render() {
           <button class="subtle-link" data-go="${b.id}">Открыть ↗</button>
         </div>`).join(''))}
     `;
+  } else if (page === 'settings') {
+    html = settingsPage();
   } else if (businesses.some(b => b.id === page)) {
     html = businessPage(businesses.find(b => b.id === page));
   } else if (page === 'planner' || page === 'calendar') {
@@ -1525,16 +1654,17 @@ function render() {
           <button class="btn" data-action="add-task">＋ Добавить задачу</button>
           <select class="field filter" id="task-filter">
             <option value="">Все направления</option>
-            <option>Личное</option>
-            ${businesses.map(b => `<option>${b.name}</option>`).join('')}
+            <option value="Личное" ${taskBizFilter==='Личное'?'selected':''}>Личное</option>
+            ${businesses.map(b => `<option ${taskBizFilter===b.name?'selected':''}>${esc(b.name)}</option>`).join('')}
           </select>
           <select class="field filter" id="status-filter">
-            <option value="">Все статусы</option>
-            <option value="open">В работе</option>
-            <option value="done">Выполнено</option>
+            <option value="" ${!taskStatusFilter?'selected':''}>Все статусы</option>
+            <option value="open" ${taskStatusFilter==='open'?'selected':''}>В работе</option>
+            <option value="waiting" ${taskStatusFilter==='waiting'?'selected':''}>Ожидает</option>
+            <option value="done" ${taskStatusFilter==='done'?'selected':''}>Выполнено</option>
           </select>
         </div>
-        ${card('Список задач', `<div id="task-list">${taskRows(all)}</div>`, `<span class="tag strawberry">${open.length} в работе</span>`)}
+        ${card('Список задач', `<div id="task-list">${taskRows(all.filter(t => (!taskBizFilter || t.biz === taskBizFilter) && (!taskStatusFilter || (taskStatusFilter==='waiting' ? (!t.done && t.status==='Ожидает') : taskStatusFilter==='done' ? t.done : (!t.done && t.status!=='Ожидает')))))}</div>`, `<span class="tag strawberry">${open.length} в работе</span>`)}
       `;
     } else {
       const groups = {};
@@ -1822,6 +1952,15 @@ function render() {
 
 // Обработчики интерфейса
 document.addEventListener('click', e => {
+  const themeBtn=e.target.closest('[data-theme]');
+  if(themeBtn){db.settings.theme=themeBtn.dataset.theme;save();applyPreferences();render();return;}
+  if(e.target.closest('[data-add-business]')){editBusinessModal();return;}
+  if(e.target.closest('[data-add-channel]')){editChannelModal();return;}
+  const ec=e.target.closest('[data-edit-channel]');if(ec){editChannelModal(ec.dataset.editChannel);return;}
+  const rc=e.target.closest('[data-remove-channel]');if(rc){removeChannel(rc.dataset.removeChannel);return;}
+  const editBiz=e.target.closest('[data-edit-business]');if(editBiz){editBusinessModal(editBiz.dataset.editBusiness);return;}
+  const rmBiz=e.target.closest('[data-remove-business]');if(rmBiz){removeBusiness(rmBiz.dataset.removeBusiness);return;}
+  if(e.target.closest('[data-password-reset]')){sendPasswordReset(currentUser?.email,$('#settings-message'));return;}
   const nav = e.target.closest('[data-page]');
   if (nav) { go(nav.dataset.page); return; }
 
@@ -1921,6 +2060,8 @@ document.addEventListener('click', e => {
 });
 
 document.addEventListener('change', e => {
+  if(e.target.id==='task-filter'){taskBizFilter=e.target.value;render();return;}
+  if(e.target.id==='status-filter'){taskStatusFilter=e.target.value;render();return;}
   if (e.target.matches('[data-content-toggle]')) {
     db.contentItems = db.contentItems || [];
     const item = db.contentItems.find(x => x.id === Number(e.target.dataset.contentToggle));
@@ -1992,6 +2133,14 @@ $('#today').textContent = new Date().toLocaleDateString('ru-RU', {
 });
 
 // Инициализация при загрузке страницы
+$('#auth-register').onclick=()=>registerAccount();
+$('#auth-reset').onclick=()=>sendPasswordReset($('#auth-email').value.trim(),$('#auth-info'));
+supabaseClient.auth.onAuthStateChange((event)=>{
+ if(event==='PASSWORD_RECOVERY') setTimeout(async()=>{
+   const pw=prompt('Введите новый пароль (не менее 8 символов)');
+   if(pw&&pw.length>=8){const {error}=await supabaseClient.auth.updateUser({password:pw});alert(error?'Ошибка: '+error.message:'Пароль изменён');}
+ },0);
+});
 checkAuth();
 </script>
 </body>
