@@ -442,7 +442,11 @@ h1, h2, h3, p { margin-top: 0; }
 .crm-card.deadline-urgent, .list-row.deadline-urgent { border:1px solid #D98896; border-left:5px solid #B34156; background:#FFF0F2; }
 .tag.deadline-alert { background:#F8CFD7; color:#85253A; white-space:normal; }
 body.theme-dark .crm-card.deadline-urgent, body.theme-dark .list-row.deadline-urgent { background:#432F36; border-color:#D98896; border-left-color:#E58FA0; }
-.crm-status-select { border: 1.5px solid #D2C3B2; background: var(--almond-pure); border-radius: 10px; padding: 6px 10px; font-size: 12px; font-weight: 700; color: var(--matcha-deep); }
+.crm-payment { display:inline-flex; align-items:center; gap:7px; padding:7px 10px; border:1px solid var(--line); border-radius:10px; background:var(--almond-pure); color:var(--espresso); font-size:12px; font-weight:700; cursor:pointer; }
+.crm-payment .check { width:18px; height:18px; margin:0; }
+.crm-payment .check:checked::after { line-height:14px; font-size:12px; }
+.tag.payment-due { background:var(--strawberry-soft); color:var(--espresso); border:1px solid var(--line); }
+.crm-status-select { border: 1.5px solid #D2C3B2; background: var(--almond-pure); border-radius: 10px; padding: 6px 10px; font-size: 12px; font-weight: 700; color: var(--matcha-deep); max-width:100%; min-width:0; }
 
 .modal-back {
   position: fixed; inset: 0; background: rgba(45, 54, 26, 0.55); backdrop-filter: blur(4px);
@@ -716,7 +720,8 @@ const CRM_STATUSES = [
   { label: 'Новый лид', cls: 'lightblue' },
   { label: 'В переговорах', cls: 'strawberry' },
   { label: 'В работе', cls: '' },
-  { label: 'Оплачен / Завершён', cls: 'coffee' }
+  { label: 'Заказ выполнен — жду обратную связь', cls: 'lightblue' },
+  { label: 'Завершён', cls: 'coffee' }
 ];
 
 const CURRENCY_META = {
@@ -782,7 +787,7 @@ async function handleLogout() {
   currentUser = null;
   db = JSON.parse(JSON.stringify(defaultDB));
   applyPreferences();
-  page='home'; taskBizFilter=''; taskStatusFilter='';
+  page='home'; taskBizFilter=''; taskStatusFilter=''; crmBizFilter=''; crmStatusFilter=''; crmPaymentFilter='';
   $('#content').innerHTML='';
   $('#auth-screen').style.display = 'flex';
 }
@@ -853,6 +858,8 @@ function mergeDB(def, raw) {
   if (Array.isArray(raw.crm) && !merged.clients.length) {
     merged.clients = raw.crm;
   }
+  merged.clients = (merged.clients || []).map(normalizeClient);
+  merged.trash = (merged.trash || []).map(entry => entry.collection === 'clients' ? {...entry, item: normalizeClient(entry.item)} : entry);
   merged.habits = (merged.habits || []).map(h => ({
     ...h,
     logs: Array.isArray(h.logs) ? h.logs : (h.done ? [TODAY] : []),
@@ -932,6 +939,7 @@ let financeScopeTab = 'all';
 let financeBizFilter = '';
 let crmBizFilter = '';
 let crmStatusFilter = '';
+let crmPaymentFilter = '';
 let selectedContentChannel = 'ig-global';
 let taskBizFilter = '';
 let taskStatusFilter = '';
@@ -1196,11 +1204,25 @@ function deadlineDays(c, today = localDate()) {
   const days = calendarDayNumber(c.deadline) - calendarDayNumber(today);
   return Number.isFinite(days) ? days : null;
 }
-function isClosedClient(c) { return c.status === 'Оплачен / Завершён'; }
+function normalizeClient(c) {
+  if (c.status === 'Оплачен / Завершён') return {...c, status: 'Завершён', paid: typeof c.paid === 'boolean' ? c.paid : true};
+  return {...c, paid: c.paid === true};
+}
+function isClosedClient(c) { return c.status === 'Завершён' || c.status === 'Оплачен / Завершён'; }
+function isDeliveredClient(c) { return isClosedClient(c) || c.status === 'Заказ выполнен — жду обратную связь'; }
+function isPaidClient(c) { return c.paid === true || (c.status === 'Оплачен / Завершён' && c.paid !== false); }
+function paymentBadge(c) {
+  return isPaidClient(c) ? '<span class="tag">✓ Оплачено</span>' : '<span class="tag payment-due">Не оплачено</span>';
+}
+function clientStageRank(c) { return isClosedClient(c) ? 2 : isDeliveredClient(c) ? 1 : 0; }
 function sortClients(clients) {
   return [...clients].sort((a,b) => {
-    const closed = Number(isClosedClient(a)) - Number(isClosedClient(b));
-    if (closed) return closed;
+    const stage = clientStageRank(a) - clientStageRank(b);
+    if (stage) return stage;
+    if (isDeliveredClient(a)) {
+      const payment = Number(isPaidClient(a)) - Number(isPaidClient(b));
+      if (payment) return payment;
+    }
     const da = calendarDayNumber(a.deadline), db = calendarDayNumber(b.deadline);
     const aa = Number.isFinite(da) ? da : Infinity, bb = Number.isFinite(db) ? db : Infinity;
     return aa === bb ? 0 : aa < bb ? -1 : 1;
@@ -1208,7 +1230,7 @@ function sortClients(clients) {
 }
 function deadlineClass(c) {
   const days = deadlineDays(c);
-  return !isClosedClient(c) && days !== null && days <= 1 ? 'deadline-urgent' : '';
+  return !isDeliveredClient(c) && days !== null && days <= 1 ? 'deadline-urgent' : '';
 }
 function dayWord(n) {
   return n % 100 >= 11 && n % 100 <= 14 ? 'дней' : n % 10 === 1 ? 'день' : n % 10 >= 2 && n % 10 <= 4 ? 'дня' : 'дней';
@@ -1217,7 +1239,7 @@ function deadlineBadge(c) {
   const days = deadlineDays(c);
   if (days === null) return '<span class="tag deadline-none">Без дедлайна</span>';
   const date = new Date(c.deadline + 'T12:00:00').toLocaleDateString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric'});
-  if (isClosedClient(c)) return `<span class="tag deadline-none">Дедлайн: ${date}</span>`;
+  if (isDeliveredClient(c)) return `<span class="tag deadline-none">Дедлайн: ${date} · Заказ выполнен</span>`;
   const text = days < 0 ? `Просрочено на ${-days} ${dayWord(-days)}` : days === 0 ? 'Срок сегодня' : days === 1 ? 'Остался 1 день' : `Осталось ${days} ${dayWord(days)}`;
   return `<span class="tag ${days <= 1 ? 'deadline-alert' : 'deadline-normal'}">${date} · ${text}</span>`;
 }
@@ -1259,6 +1281,11 @@ function addClientModal(editId = null) {
         </div>
       </div>
       <div class="full">
+        <label class="field-label">Оплата заказа</label>
+        <label class="crm-payment"><input type="checkbox" class="check" id="crm-paid" ${existing && isPaidClient(existing) ? 'checked' : ''}> Оплачено</label>
+        <div class="list-row-meta">Оплату можно отметить независимо от этапа заказа.</div>
+      </div>
+      <div class="full">
         <label class="field-label" for="crm-deadline">Дедлайн — дата сдачи заказа</label>
         <input class="field" id="crm-deadline" type="date" value="${esc(existing?.deadline || '')}">
       </div>
@@ -1281,6 +1308,7 @@ function addClientModal(editId = null) {
       name,
       biz: $('#crm-biz').value,
       status: $('#crm-status').value,
+      paid: $('#crm-paid').checked,
       contact: $('#crm-contact').value.trim(),
       amount: Number($('#crm-amount').value) || 0,
       currency: $('#crm-cur').value,
@@ -1603,7 +1631,7 @@ function businessPage(b) {
           <div class="list-row-main">
             <div class="list-row-title">${esc(c.name)}</div>
             <div class="list-row-meta">${esc(c.status || 'Новый лид')} ${c.contact ? '· ' + esc(c.contact) : ''}</div>
-            <div class="deadline-line">${deadlineBadge(c)}</div>
+            <div class="deadline-line">${deadlineBadge(c)}${paymentBadge(c)}</div>
           </div>
           ${c.amount > 0 ? `<span class="tag">${formatMoney(c.amount, c.currency || 'USD')}</span>` : ''}
         </div>`).join('') : empty('Клиентов пока нет.'), `<button class="subtle-link" data-go="crm">Вся CRM →</button>`)}
@@ -1825,16 +1853,19 @@ function render() {
     const dispCur = db.settings.displayCurrency;
     const filteredClients = sortClients(db.clients.filter(c =>
       (!crmBizFilter || c.biz === crmBizFilter) &&
-      (!crmStatusFilter || c.status === crmStatusFilter)
+      (!crmStatusFilter || c.status === crmStatusFilter) &&
+      (!crmPaymentFilter || (crmPaymentFilter === 'paid' ? isPaidClient(c) : !isPaidClient(c)))
     ));
     const totalPipeline = db.clients.reduce((s, c) => s + convertMoney(c.amount || 0, c.currency || 'USD', dispCur), 0);
     const activeClients = db.clients.filter(c => c.status === 'В работе' || c.status === 'В переговорах').length;
+    const waitingPayment = db.clients.filter(c => isDeliveredClient(c) && !isPaidClient(c)).length;
 
-    html = pageHeader('CLIENT RELATIONS', 'Клиенты и CRM', 'Единая база клиентов и сделок. Сначала ближайшие дедлайны, затем клиенты без срока и завершённые сделки.') + `
+    html = pageHeader('CLIENT RELATIONS', 'Клиенты и CRM', 'Единая база клиентов и сделок. Сначала ближайшие дедлайны, затем выполненные и завершённые заказы. Оплата отмечается отдельно.') + `
       <div class="grid stats">
         ${stat('Всего клиентов', db.clients.length, 'В базе', 'accent-coffee')}
         ${stat('Активные сделки', activeClients, 'В работе', 'accent-strawberry')}
         ${stat('Объём сделок', formatMoney(totalPipeline, dispCur), 'В ' + dispCur, 'accent-lightblue')}
+        ${stat('Ожидают оплаты', waitingPayment, 'Выполненные заказы', 'accent-strawberry')}
       </div>
 
       <div class="toolbar">
@@ -1847,6 +1878,11 @@ function render() {
         <select class="field filter" id="crm-status-filter">
           <option value="">Все этапы</option>
           ${CRM_STATUSES.map(s => `<option value="${s.label}" ${crmStatusFilter === s.label ? 'selected' : ''}>${s.label}</option>`).join('')}
+        </select>
+        <select class="field filter" id="crm-payment-filter" aria-label="Фильтр по оплате">
+          <option value="">Любая оплата</option>
+          <option value="unpaid" ${crmPaymentFilter === 'unpaid' ? 'selected' : ''}>Не оплачено</option>
+          <option value="paid" ${crmPaymentFilter === 'paid' ? 'selected' : ''}>Оплачено</option>
         </select>
       </div>
 
@@ -1866,13 +1902,14 @@ function render() {
                 ${c.amount > 0 ? `💰 <b>${formatMoney(c.amount, cur)}</b> · ` : ''}
                 <span>Добавлен: ${dateFmt(c.date)}</span>
               </div>
-              <div class="deadline-line">${deadlineBadge(c)}</div>
+              <div class="deadline-line">${deadlineBadge(c)}${paymentBadge(c)}</div>
               ${c.note ? `<div style="font-size:12.5px;color:var(--espresso);margin-top:5px">${esc(c.note)}</div>` : ''}
             </div>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:100%;min-width:0">
               <select class="crm-status-select" data-crm-status="${c.id}">
                 ${CRM_STATUSES.map(s => `<option value="${s.label}" ${c.status === s.label ? 'selected' : ''}>${s.label}</option>`).join('')}
               </select>
+              <label class="crm-payment"><input type="checkbox" class="check" data-crm-paid="${c.id}" ${isPaidClient(c) ? 'checked' : ''}> Оплачено</label>
               <button class="btn btn-light btn-sm" data-edit-crm="${c.id}">✎</button>
               <button class="delete" data-delete="clients" data-id="${c.id}">×</button>
             </div>
@@ -2162,6 +2199,15 @@ document.addEventListener('change', e => {
     return;
   }
 
+  if (e.target.matches('[data-crm-paid]')) {
+    const c = db.clients.find(x => x.id === Number(e.target.dataset.crmPaid));
+    if (c) { c.paid = e.target.checked; save(); render(); }
+    return;
+  }
+  if (e.target.id === 'crm-payment-filter') {
+    crmPaymentFilter = e.target.value;
+    render(); return;
+  }
   if (e.target.matches('[data-crm-status]')) {
     const c = db.clients.find(x => x.id === Number(e.target.dataset.crmStatus));
     if (c) {
