@@ -436,6 +436,12 @@ h1, h2, h3, p { margin-top: 0; }
   background: var(--almond-card); border: 1px solid var(--line); border-left: 5px solid var(--lightblue);
   border-radius: 16px; padding: 16px 18px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between;
 }
+.deadline-line { margin-top: 8px; display:flex; flex-wrap:wrap; gap:6px; }
+.tag.deadline-none { background:var(--almond-pure); color:var(--muted); border:1px solid var(--line); }
+.tag.deadline-normal { background:var(--matcha-soft); color:var(--matcha-deep); }
+.crm-card.deadline-urgent, .list-row.deadline-urgent { border:1px solid #D98896; border-left:5px solid #B34156; background:#FFF0F2; }
+.tag.deadline-alert { background:#F8CFD7; color:#85253A; white-space:normal; }
+body.theme-dark .crm-card.deadline-urgent, body.theme-dark .list-row.deadline-urgent { background:#432F36; border-color:#D98896; border-left-color:#E58FA0; }
 .crm-status-select { border: 1.5px solid #D2C3B2; background: var(--almond-pure); border-radius: 10px; padding: 6px 10px; font-size: 12px; font-weight: 700; color: var(--matcha-deep); }
 
 .modal-back {
@@ -617,7 +623,27 @@ let saveTimeout = null;
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 
-const TODAY = new Date().toLocaleDateString('en-CA');
+// Календарная дата устройства (без сдвига из-за UTC).
+function localDate(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+let TODAY = localDate();
+function refreshToday() {
+  TODAY = localDate();
+  $('#today').textContent = new Date().toLocaleDateString('ru-RU', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+  });
+}
+// Старые выполненные задачи без даты выполнения уже относятся к архиву.
+// Архив — представление существующих записей, а не удаление из базы.
+function isArchivedTask(t, today = localDate()) {
+  return !!t.done && (!t.completedOn || t.completedOn < today);
+}
+function setTaskDone(t, checked, today = localDate()) {
+  if (checked && !t.done) t.completedOn = today;
+  if (!checked) delete t.completedOn;
+  t.done = checked;
+}
 const dateFmt = d => d ? new Date(d + 'T12:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : 'Без даты';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -964,6 +990,7 @@ function taskRows(arr) {
             ${prioBadge(t.priority || 'Средний')}
             <span class="tag ${t.done ? '' : t.status === 'Ожидает' ? 'strawberry' : 'lightblue'}">${esc(t.done ? 'Выполнено' : (t.status||'В работе'))}</span>
             <span>📅 ${dateFmt(t.date)}</span>
+            ${t.done && t.completedOn ? `<span>✓ Выполнено: ${dateFmt(t.completedOn)}</span>` : ''}
           </div>
         </div>
         <button class="btn btn-light btn-sm" data-edit-task="${t.id}" aria-label="Редактировать">✎</button>
@@ -1022,7 +1049,7 @@ function getLast7Days() {
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const iso = d.toLocaleDateString('en-CA');
+    const iso = localDate(d);
     days.push({
       iso,
       short: dayNames[d.getDay()],
@@ -1038,10 +1065,10 @@ function calcStreak(logs) {
   const set = new Set(logs);
   let streak = 0;
   const cursor = new Date();
-  if (!set.has(cursor.toLocaleDateString('en-CA'))) {
+  if (!set.has(localDate(cursor))) {
     cursor.setDate(cursor.getDate() - 1);
   }
-  while (set.has(cursor.toLocaleDateString('en-CA'))) {
+  while (set.has(localDate(cursor))) {
     streak++;
     cursor.setDate(cursor.getDate() - 1);
   }
@@ -1159,6 +1186,42 @@ function addGoalOrProject(kind) {
   };
 }
 
+// CRM: даты считаются в календарных днях, независимо от часового пояса и DST.
+function calendarDayNumber(iso) {
+  if (typeof iso !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return NaN;
+  const ms = Date.parse(iso + 'T00:00:00Z');
+  return Number.isFinite(ms) && new Date(ms).toISOString().slice(0,10) === iso ? ms / 86400000 : NaN;
+}
+function deadlineDays(c, today = localDate()) {
+  const days = calendarDayNumber(c.deadline) - calendarDayNumber(today);
+  return Number.isFinite(days) ? days : null;
+}
+function isClosedClient(c) { return c.status === 'Оплачен / Завершён'; }
+function sortClients(clients) {
+  return [...clients].sort((a,b) => {
+    const closed = Number(isClosedClient(a)) - Number(isClosedClient(b));
+    if (closed) return closed;
+    const da = calendarDayNumber(a.deadline), db = calendarDayNumber(b.deadline);
+    const aa = Number.isFinite(da) ? da : Infinity, bb = Number.isFinite(db) ? db : Infinity;
+    return aa === bb ? 0 : aa < bb ? -1 : 1;
+  });
+}
+function deadlineClass(c) {
+  const days = deadlineDays(c);
+  return !isClosedClient(c) && days !== null && days <= 1 ? 'deadline-urgent' : '';
+}
+function dayWord(n) {
+  return n % 100 >= 11 && n % 100 <= 14 ? 'дней' : n % 10 === 1 ? 'день' : n % 10 >= 2 && n % 10 <= 4 ? 'дня' : 'дней';
+}
+function deadlineBadge(c) {
+  const days = deadlineDays(c);
+  if (days === null) return '<span class="tag deadline-none">Без дедлайна</span>';
+  const date = new Date(c.deadline + 'T12:00:00').toLocaleDateString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric'});
+  if (isClosedClient(c)) return `<span class="tag deadline-none">Дедлайн: ${date}</span>`;
+  const text = days < 0 ? `Просрочено на ${-days} ${dayWord(-days)}` : days === 0 ? 'Срок сегодня' : days === 1 ? 'Остался 1 день' : `Осталось ${days} ${dayWord(days)}`;
+  return `<span class="tag ${days <= 1 ? 'deadline-alert' : 'deadline-normal'}">${date} · ${text}</span>`;
+}
+
 function addClientModal(editId = null) {
   const existing = editId ? db.clients.find(c => c.id === editId) : null;
   openModal(existing ? 'Редактировать клиента' : 'Новый клиент', `
@@ -1196,6 +1259,10 @@ function addClientModal(editId = null) {
         </div>
       </div>
       <div class="full">
+        <label class="field-label" for="crm-deadline">Дедлайн — дата сдачи заказа</label>
+        <input class="field" id="crm-deadline" type="date" value="${esc(existing?.deadline || '')}">
+      </div>
+      <div class="full">
         <label class="field-label">Заметка по заказу</label>
         <textarea class="field" id="crm-note" rows="2" placeholder="Детали заказа">${esc(existing?.note || '')}</textarea>
       </div>
@@ -1209,6 +1276,7 @@ function addClientModal(editId = null) {
     const name = $('#crm-name').value.trim();
     if (!name) { $('#crm-name').focus(); return; }
     const payload = {
+      ...(existing || {}),
       id: existing ? existing.id : Date.now(),
       name,
       biz: $('#crm-biz').value,
@@ -1217,6 +1285,7 @@ function addClientModal(editId = null) {
       amount: Number($('#crm-amount').value) || 0,
       currency: $('#crm-cur').value,
       note: $('#crm-note').value.trim(),
+      deadline: $('#crm-deadline').value || '',
       date: existing?.date || TODAY
     };
     if (existing) {
@@ -1506,7 +1575,7 @@ function rowsGoalProject(kind) {
 function businessPage(b) {
   const tasks = db.tasks.filter(t => t.biz === b.name);
   const completed = tasks.filter(t => t.done).length;
-  const bizClients = db.clients.filter(c => c.biz === b.name);
+  const bizClients = sortClients(db.clients.filter(c => c.biz === b.name));
   const dispCur = db.settings.displayCurrency;
   const bizFinance = db.finance.filter(f => f.biz === b.name);
   const bizNet = bizFinance.reduce((sum, f) => {
@@ -1526,14 +1595,15 @@ function businessPage(b) {
       <button class="btn btn-light" data-action="add-crm">＋ Новый клиент</button>
       <button class="btn btn-lightblue" data-action="add-finance">＋ Операция</button>
     </div>
-    ${card('Задачи направления', taskRows(tasks))}
+    ${card('Задачи направления', taskRows(tasks.filter(t => !isArchivedTask(t, TODAY))))}
     <div style="height:16px"></div>
     <div class="grid columns">
       ${card('Клиенты направления', bizClients.length ? bizClients.slice(0, 5).map(c => `
-        <div class="list-row">
+        <div class="list-row ${deadlineClass(c)}">
           <div class="list-row-main">
             <div class="list-row-title">${esc(c.name)}</div>
             <div class="list-row-meta">${esc(c.status || 'Новый лид')} ${c.contact ? '· ' + esc(c.contact) : ''}</div>
+            <div class="deadline-line">${deadlineBadge(c)}</div>
           </div>
           ${c.amount > 0 ? `<span class="tag">${formatMoney(c.amount, c.currency || 'USD')}</span>` : ''}
         </div>`).join('') : empty('Клиентов пока нет.'), `<button class="subtle-link" data-go="crm">Вся CRM →</button>`)}
@@ -1552,10 +1622,13 @@ function businessPage(b) {
 }
 
 function render() {
+  refreshToday();
   const all = db.tasks;
+  const activeTasks = all.filter(t => !isArchivedTask(t, TODAY));
   const open = all.filter(t => !t.done);
   const done = all.filter(t => t.done);
-  const todayTasks = all.filter(t => t.date === TODAY);
+  const archived = done.filter(t => isArchivedTask(t, TODAY));
+  const todayTasks = activeTasks.filter(t => t.date === TODAY || (t.done && t.completedOn === TODAY));
   const todayDone = todayTasks.filter(t => t.done).length;
   const progressPct = todayTasks.length ? Math.round(todayDone / todayTasks.length * 100) : 0;
 
@@ -1664,11 +1737,11 @@ function render() {
             <option value="done" ${taskStatusFilter==='done'?'selected':''}>Выполнено</option>
           </select>
         </div>
-        ${card('Список задач', `<div id="task-list">${taskRows(all.filter(t => (!taskBizFilter || t.biz === taskBizFilter) && (!taskStatusFilter || (taskStatusFilter==='waiting' ? (!t.done && t.status==='Ожидает') : taskStatusFilter==='done' ? t.done : (!t.done && t.status!=='Ожидает')))))}</div>`, `<span class="tag strawberry">${open.length} в работе</span>`)}
+        ${card('Список задач', `<div id="task-list">${taskRows(activeTasks.filter(t => (!taskBizFilter || t.biz === taskBizFilter) && (!taskStatusFilter || (taskStatusFilter==='waiting' ? (!t.done && t.status==='Ожидает') : taskStatusFilter==='done' ? t.done : (!t.done && t.status!=='Ожидает')))))}</div>`, `<span class="tag strawberry">${open.length} в работе</span>`)}
       `;
     } else {
       const groups = {};
-      [...all].sort((a, b) => (a.date || '').localeCompare(b.date || '')).forEach(t => (groups[t.date || 'Без даты'] ??= []).push(t));
+      [...activeTasks].sort((a, b) => (a.date || '').localeCompare(b.date || '')).forEach(t => (groups[t.date || 'Без даты'] ??= []).push(t));
       html += Object.keys(groups).length
         ? Object.entries(groups).map(([d, arr]) => `${card(d === 'Без даты' ? d : dateFmt(d), taskRows(arr))}<div style="height:14px"></div>`).join('')
         : card('Ваш календарь', empty('Добавьте задачи с датой.'));
@@ -1750,14 +1823,14 @@ function render() {
     `;
   } else if (page === 'crm') {
     const dispCur = db.settings.displayCurrency;
-    const filteredClients = db.clients.filter(c =>
+    const filteredClients = sortClients(db.clients.filter(c =>
       (!crmBizFilter || c.biz === crmBizFilter) &&
       (!crmStatusFilter || c.status === crmStatusFilter)
-    );
+    ));
     const totalPipeline = db.clients.reduce((s, c) => s + convertMoney(c.amount || 0, c.currency || 'USD', dispCur), 0);
     const activeClients = db.clients.filter(c => c.status === 'В работе' || c.status === 'В переговорах').length;
 
-    html = pageHeader('CLIENT RELATIONS', 'Клиенты и CRM', 'Единая база клиентов и сделок.') + `
+    html = pageHeader('CLIENT RELATIONS', 'Клиенты и CRM', 'Единая база клиентов и сделок. Сначала ближайшие дедлайны, затем клиенты без срока и завершённые сделки.') + `
       <div class="grid stats">
         ${stat('Всего клиентов', db.clients.length, 'В базе', 'accent-coffee')}
         ${stat('Активные сделки', activeClients, 'В работе', 'accent-strawberry')}
@@ -1781,7 +1854,7 @@ function render() {
         const stObj = CRM_STATUSES.find(s => s.label === c.status) || CRM_STATUSES[0];
         const cur = c.currency || 'USD';
         return `
-          <div class="crm-card">
+          <div class="crm-card ${deadlineClass(c)}">
             <div style="flex:1;min-width:220px">
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <strong style="font-size:15px;color:var(--matcha-deep)">${esc(c.name)}</strong>
@@ -1793,6 +1866,7 @@ function render() {
                 ${c.amount > 0 ? `💰 <b>${formatMoney(c.amount, cur)}</b> · ` : ''}
                 <span>Добавлен: ${dateFmt(c.date)}</span>
               </div>
+              <div class="deadline-line">${deadlineBadge(c)}</div>
               ${c.note ? `<div style="font-size:12.5px;color:var(--espresso);margin-top:5px">${esc(c.note)}</div>` : ''}
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -1944,7 +2018,7 @@ function render() {
       </div>
     `;
   } else if (page === 'archive') {
-    html = pageHeader('STORED', 'Архив', 'Завершённые задачи.') + card('Выполненные задачи', taskRows(done));
+    html = pageHeader('STORED', 'Архив', 'Задачи переходят сюда на следующий календарный день после выполнения. Сними галочку, чтобы вернуть задачу в планер.') + card('Выполненные задачи', archived.length ? taskRows([...archived].sort((a,b) => (b.completedOn || '').localeCompare(a.completedOn || ''))) : empty('В архиве пока нет задач.'));
   }
 
   $('#content').innerHTML = html;
@@ -2072,7 +2146,7 @@ document.addEventListener('change', e => {
 
   if (e.target.matches('[data-toggle-task]')) {
     const t = db.tasks.find(x => x.id === Number(e.target.dataset.toggleTask));
-    if (t) t.done = e.target.checked;
+    if (t) setTaskDone(t, e.target.checked);
     save();
     render();
     return;
@@ -2128,9 +2202,17 @@ $('#modal').addEventListener('click', e => {
   if (e.target.id === 'modal') closeModal();
 });
 
-$('#today').textContent = new Date().toLocaleDateString('ru-RU', {
-  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-});
+refreshToday();
+// Если планер остаётся открытым ночью, обновить списки без перезагрузки.
+function checkDayChange() {
+  if (TODAY !== localDate()) {
+    refreshToday();
+    if (currentUser && $('#content').innerHTML) render();
+  }
+}
+setInterval(checkDayChange, 15000);
+window.addEventListener('focus', checkDayChange);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDayChange(); });
 
 // Инициализация при загрузке страницы
 $('#auth-register').onclick=()=>registerAccount();
